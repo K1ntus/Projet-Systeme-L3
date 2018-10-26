@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <string.h>
+
+#include <dlfcn.h>
+
 #include "testfw.h"
 
 /* ********** STRUCTURES ********** */
@@ -18,8 +22,7 @@ struct test_t
     testfw_func_t func; 	//< test function
 };
 */
-struct testfw_t
-{
+struct testfw_t  {
 	struct test_t ** tests;
 	int nb_tests;
 
@@ -35,8 +38,7 @@ struct testfw_t
 
 /* ********** FRAMEWORK ********** */
 
-struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cmd, bool silent, bool verbose)
-{
+struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cmd, bool silent, bool verbose) {
   struct testfw_t* res = (struct testfw_t*) malloc(sizeof(struct testfw_t*) + 2*sizeof(int) + 3*sizeof(char*) + 2*sizeof(bool) + sizeof(struct test_t));
   if(!res){
     fprintf(stderr, "Invalid memory allocation\n");
@@ -86,8 +88,7 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 		return res;
 }
 
-void testfw_free(struct testfw_t *fw)
-{
+void testfw_free(struct testfw_t *fw) {
 	//Add memory tests
   //	free(fw->tests);
   free(fw->program);
@@ -96,15 +97,13 @@ void testfw_free(struct testfw_t *fw)
   free(fw);
 }
 
-int testfw_length(struct testfw_t *fw)
-{
+int testfw_length(struct testfw_t *fw)  {
 
   return fw->nb_tests	;
 }
 
-struct test_t *testfw_get(struct testfw_t *fw, int k)
-{
-    return fw->tests[k];
+struct test_t *testfw_get(struct testfw_t *fw, int k) {
+  return fw->tests[k];
 }
 
 /* ********** REGISTER TEST ********** */
@@ -122,9 +121,35 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 		return res;
 }
 
+
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name)
 {
-    return NULL;
+  char *test_name = malloc(sizeof(char) * (strlen(suite) + strlen(name) + 1));
+  strcat(test_name, suite);
+  strcat(test_name, "_");
+  strcat(test_name, name);
+
+
+  void * handle_sym;
+  void * (*func) (int argc, char*argv);
+  char * error;
+
+  dlerror();  //clear error code
+
+  handle_sym = dlopen("./sample", RTLD_NOW);
+  if(!handle_sym){
+    fputs (dlerror(), stderr);
+    exit(1);
+  }
+
+  func = dlsym(handle_sym, test_name);
+  if((error = dlerror()) != NULL){
+    fputs (dlerror(), stderr);
+    exit(1);
+  }
+
+  //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else segfault :3
+  return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
 int testfw_register_suite(struct testfw_t *fw, char *suite)
