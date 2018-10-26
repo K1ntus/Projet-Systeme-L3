@@ -14,14 +14,6 @@
 /**
  * @brief test structure
  */
- /*
-struct test_t
-{
-    char *suite;        	//< suite name
-    char *name;         	//< test name
-    testfw_func_t func; 	//< test function
-};
-*/
 struct testfw_t  {
 	struct test_t ** tests;
 	int nb_tests;
@@ -46,7 +38,7 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
   }
 
 
-	res->tests = (struct test_t **) malloc(sizeof(struct test_t **)+sizeof(struct test_t *) *150);
+	res->tests = (struct test_t **) malloc(sizeof(struct test_t *) *150);
 	if(!res->tests){
 	  fprintf(stderr, "Invalid memory allocation to save the tests data\n");
 	}
@@ -105,23 +97,21 @@ void testfw_free(struct testfw_t *fw) {
 
   if(fw->cmd)
     free(fw->cmd);
+  if(fw->logfile)
+    free(fw->logfile);
+  if(fw->program)
+    free(fw->program);
 
-  free(fw->program);  
-  free(fw->logfile);  
   
   free(fw);
 }
 
 int testfw_length(struct testfw_t *fw)  {
-
   return fw->nb_tests	;
 }
 
 struct test_t *testfw_get(struct testfw_t *fw, int k) {
-  return NULL;
-  /*
   return fw->tests[k];
-  */
 }
 
 /* ********** REGISTER TEST ********** */
@@ -141,7 +131,16 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 
 
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
-  char *test_name = malloc(sizeof(char) * (strlen(suite) + strlen(name) + 1));
+
+  unsigned int name_length  = 0;
+  unsigned int suite_length = 0;
+
+  if(suite != NULL)
+    suite_length = strlen(suite);
+  if(name != NULL)
+    name_length = strlen(name);
+
+  char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
   strcat(test_name, suite);
   strcat(test_name, "_");
   strcat(test_name, name);
@@ -161,10 +160,11 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
   }
 
   func = dlsym(handle_sym, test_name);
+  /*
   if((error = dlerror()) != NULL){
     fputs (dlerror(), stderr);
     exit(1);
-  }
+  }*/
 
   //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else SEGFAULT youhou :3
   return testfw_register_func(fw, suite, name, (testfw_func_t) func);
@@ -172,25 +172,49 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 
 int testfw_register_suite(struct testfw_t *fw, char *suite) {
   /*
-
   char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
   strcat(cmd, "nm --defined-only ./");
   strcat(cmd,fw->program);
   strcat(cmd, " | cut -d ' ' -f 3 | grep \"");
   strcat(cmd,suite);
   strcat(cmd,"\"");
+*/
+  
+  int sum =0;
 
-  */
-
-  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
+  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen("nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"\"")));
   strcat(cmd, "nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"^");
   strcat(cmd,suite);
   strcat(cmd,"\"");
-  FILE * f = popen(cmd,"r\0");
+
+  FILE * f = popen(cmd,"r");
+  char path[1024];
+
+  unsigned int name_length  = 0;
+  unsigned int suite_length = 0;
+  unsigned int path_length  = 0;
+
+  while(fgets(path, sizeof(path) -1, f) != NULL){  //print the output line per line
+    if (suite != NULL)
+      suite_length = strlen(suite);
+
+    if(path != NULL)
+      path_length = strlen(path);
+
+    name_length = path_length - suite_length;
+    char *name = (char*) malloc(sizeof(char) * name_length);
+
+    for(unsigned int i = suite_length+1, j=0; j < name_length; i++,j++){
+      name[j] = path[i];
+    }
+
+    testfw_register_symb(fw, suite, name);
+    sum +=1;
+  }
 
   pclose(f);
 
-  return EXIT_SUCCESS;
+  return sum;
 }
 
 /* ********** RUN TEST ********** */
