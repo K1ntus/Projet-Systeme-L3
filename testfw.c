@@ -27,7 +27,7 @@ struct testfw_t  {
 	int nb_tests;
 
 	char * program;
-	char * logFile;
+	char * logfile;
 	char * cmd;
 
 	int timeout;
@@ -39,7 +39,7 @@ struct testfw_t  {
 /* ********** FRAMEWORK ********** */
 
 struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cmd, bool silent, bool verbose) {
-  struct testfw_t* res = (struct testfw_t*) malloc(sizeof(struct testfw_t*) + 2*sizeof(int) + 3*sizeof(char*) + 2*sizeof(bool) + sizeof(struct test_t));
+  struct testfw_t* res = (struct testfw_t*) malloc(sizeof(struct testfw_t));
   if(!res){
     fprintf(stderr, "Invalid memory allocation\n");
   }
@@ -49,22 +49,27 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 	if(!res->tests){
 	  fprintf(stderr, "Invalid memory allocation to save the tests data\n");
 	}
+  
 	res->nb_tests = 0;
 
-  res->program = (char *) malloc(sizeof(char *));
-  if(!res->program){
-    fprintf(stderr, "Invalid memory allocation to save the program executable name\n");
-  }
 
-  res->logFile = (char *) malloc(sizeof(char *));
-  if(!res->logFile){
-    fprintf(stderr, "Invalid memory allocation to save the logFile name\n");
-  }
+//STRLEN ON NULL => segfault
+  if(program != NULL)
+    res->program = (char *) malloc(sizeof(char) * (strlen(program) + 1));
+  else
+    res->program = NULL;
 
-  res->cmd = (char *) malloc(sizeof(char *));
-  if(!res->cmd){
-    fprintf(stderr, "Invalid memory allocation to save the cmd\n");
-  }
+
+  if(logfile != NULL)
+    res->logfile = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
+  else
+    res->logfile = NULL;
+
+
+  if(cmd != NULL)
+    res->cmd = (char *) malloc(sizeof(char) * (strlen(cmd) + 1));
+  else
+    res->cmd = NULL;
 
 
   if(timeout > 0)
@@ -81,19 +86,28 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
   }
 
 
-    res->program = program;
-    res->logFile = logfile;
-    res->cmd = cmd;
+    if(res->logfile)
+      strcpy(res->logfile, logfile);
+    if(res->logfile)
+      strcpy(res->logfile, logfile);
+    if(res->cmd)
+      strcpy(res->cmd, cmd);
 
 		return res;
 }
 
 void testfw_free(struct testfw_t *fw) {
-	//Add memory tests
-  //	free(fw->tests);
-  free(fw->program);
-  free(fw->logFile);
-  free(fw->cmd);
+  for(unsigned int i = fw->nb_tests; i > 0; i--){
+    free(fw->tests[i]);
+  }
+  free(fw->tests);
+
+  if(fw->cmd)
+    free(fw->cmd);
+
+  free(fw->program);  
+  free(fw->logfile);  
+  
   free(fw);
 }
 
@@ -103,7 +117,10 @@ int testfw_length(struct testfw_t *fw)  {
 }
 
 struct test_t *testfw_get(struct testfw_t *fw, int k) {
+  return NULL;
+  /*
   return fw->tests[k];
+  */
 }
 
 /* ********** REGISTER TEST ********** */
@@ -122,8 +139,7 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 }
 
 
-struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name)
-{
+struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
   char *test_name = malloc(sizeof(char) * (strlen(suite) + strlen(name) + 1));
   strcat(test_name, suite);
   strcat(test_name, "_");
@@ -161,8 +177,8 @@ int testfw_register_suite(struct testfw_t *fw, char *suite)
 
 int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode)
 {
-	for(unsigned int i = 0; i < fw->nb_tests; i++){
+	/*for(unsigned int i = 0; i < fw->nb_tests; i++){
 		fw->tests[i]->func(argc, argv);
-	}
+	}*/
   return EXIT_SUCCESS;
 }
