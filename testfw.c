@@ -38,6 +38,7 @@ struct testfw_t  {
 
 /* ********** FRAMEWORK ********** */
 
+//make some mem test there plz
 struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cmd, bool silent, bool verbose) {
   struct testfw_t* res = (struct testfw_t*) malloc(sizeof(struct testfw_t));
   if(!res){
@@ -86,14 +87,14 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
   }
 
 
-    if(res->logfile)
-      strcpy(res->logfile, logfile);
-    if(res->logfile)
-      strcpy(res->logfile, logfile);
-    if(res->cmd)
-      strcpy(res->cmd, cmd);
+  if(res->logfile)
+    strcpy(res->logfile, logfile);
+  if(res->logfile)
+    strcpy(res->logfile, logfile);
+  if(res->cmd)
+    strcpy(res->cmd, cmd);
 
-		return res;
+	return res;
 }
 
 void testfw_free(struct testfw_t *fw) {
@@ -152,6 +153,7 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 
   dlerror();  //clear error code
 
+
   handle_sym = dlopen("./sample", RTLD_NOW);
   if(!handle_sym){
     fputs (dlerror(), stderr);
@@ -164,13 +166,31 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
     exit(1);
   }
 
-  //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else segfault :3
+  //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else SEGFAULT youhou :3
   return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
-int testfw_register_suite(struct testfw_t *fw, char *suite)
-{
-    return EXIT_SUCCESS;
+int testfw_register_suite(struct testfw_t *fw, char *suite) {
+  /*
+
+  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
+  strcat(cmd, "nm --defined-only ./");
+  strcat(cmd,fw->program);
+  strcat(cmd, " | cut -d ' ' -f 3 | grep \"");
+  strcat(cmd,suite);
+  strcat(cmd,"\"");
+
+  */
+
+  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
+  strcat(cmd, "nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"^");
+  strcat(cmd,suite);
+  strcat(cmd,"\"");
+  FILE * f = popen(cmd,"r\0");
+
+  pclose(f);
+
+  return EXIT_SUCCESS;
 }
 
 /* ********** RUN TEST ********** */
