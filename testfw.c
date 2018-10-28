@@ -161,7 +161,7 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 
 
   if(!handle_sym){
-    fputs (dlerror(), stderr);
+    //fputs (dlerror(), stderr);
     //exit(1);
   }
   /*
