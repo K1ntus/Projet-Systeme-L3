@@ -209,9 +209,11 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
     testfw_register_symb(fw, suite, name);
     sum +=1;
   }
-  pclose(f);
 
-  return sum;
+  pclose(f);
+	free(cmd);
+
+	return sum;
 }
 
 /* ********** RUN TEST ********** */
