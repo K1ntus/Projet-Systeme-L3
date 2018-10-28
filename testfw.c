@@ -38,7 +38,10 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
   }
 
 
-	res->tests = (struct test_t **) malloc(sizeof(struct test_t *) *150);
+	res->tests = (struct test_t **) malloc(sizeof(struct test_t *)*2);
+	if(!res->tests)
+		return NULL;
+	res->tests[0] = (struct test_t *) malloc(sizeof(struct test_t));
 	if(!res->tests){
 	  fprintf(stderr, "Invalid memory allocation to save the tests data\n");
 	}
@@ -47,22 +50,23 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 
 
 //STRLEN ON NULL => segfault
-  if(program != NULL)
     res->program = (char *) malloc(sizeof(char) * (strlen(program) + 1));
-  else
-    res->program = NULL;
 
-
-  if(logfile != NULL)
+  if(logfile != NULL){
+		res->logfile = (char *) malloc(sizeof(char));
     res->logfile = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
-  else
-    res->logfile = NULL;
+  }else{
+		res->logfile = (char *) malloc(sizeof(char));
+    res->logfile = "\0";
+	}
 
-
-  if(cmd != NULL)
-    res->cmd = (char *) malloc(sizeof(char) * (strlen(cmd) + 1));
-  else
-    res->cmd = NULL;
+	 if(cmd != NULL){
+		res->cmd = (char *) malloc(sizeof(char));
+    res->cmd = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
+  }else{
+		res->cmd = (char *) malloc(sizeof(char));
+    res->cmd = "\0";
+	}
 
 
   if(timeout > 0)
@@ -79,11 +83,9 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
   }
 
 
-  if(res->logfile)
+  if(strcmp(res->logfile, "\0") != 0)
     strcpy(res->logfile, logfile);
-  if(res->logfile)
-    strcpy(res->logfile, logfile);
-  if(res->cmd)
+	if(strcmp(res->cmd, "\0") != 0)
     strcpy(res->cmd, cmd);
 	strcpy(res->program, program);
 
@@ -91,18 +93,13 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 }
 
 void testfw_free(struct testfw_t *fw) {
-  for(unsigned int i = fw->nb_tests; i > 0; i--){
-		if(fw->tests[i])
-    	free(fw->tests[i]);
-  }
+  if(fw->tests[0])
+		free(fw->tests[0]);
 	if(fw->tests)
   	free(fw->tests);
 
-  if(fw->cmd)
     free(fw->cmd);
-  if(fw->logfile)
     free(fw->logfile);
-  if(fw->program)
     free(fw->program);
 
 	if(fw)
@@ -126,9 +123,19 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 		res -> func = func;
 
 		//realloc fw->tests
+
+
+		fw->tests[0] = realloc(fw->tests[0],sizeof(struct test_t) * (fw->nb_tests+1));
+
+		struct test_t *tmp = (struct test_t*)realloc(fw->tests[0], (fw->nb_tests+1)*sizeof(struct test_t));
+		if (tmp != NULL) {
+		    fw->tests[0] = tmp;
+		} else {
+		    // Do something about the failed allocation
+		}
+
 		fw->tests[fw->nb_tests] = res;
 		fw->nb_tests += 1;
-
 		return res;
 }
 
@@ -145,26 +152,29 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
   name_length = strlen(name);
 
   char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
-
-  strcat(test_name, suite);
+  strcpy(test_name, suite);
 	strcat(test_name, "_");
   strcat(test_name, name);
 
-
   void * handle_sym = dlopen("./sample", RTLD_NOW);;
   void * (*func) (int argc, char*argv);
+	//void * error;
 
   dlerror();  //clear error code
 
+  func =  dlsym(handle_sym, test_name);	//Return null if no
 
-  func = dlsym(handle_sym, test_name);
-
-
-  if(!handle_sym){
+	//error = dlerror();
+	//if(error == NULL){
     //fputs (dlerror(), stderr);
-    //exit(1);
+		//dlclose(handle_sym);
+		//return NULL;
+	//}
+	/*
+  if(!handle_sym){
+    fputs (dlerror(), stderr);
+    exit(1);
   }
-  /*
   if((error = dlerror()) != NULL){  //cause segfault when used from register suite idk why
     fputs (dlerror(), stderr);
     exit(1);
@@ -181,7 +191,7 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 		return 0;
 
 	char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
-	strcat(cmd, "nm --defined-only ");
+	strcpy(cmd, "nm --defined-only ");
 	strcat(cmd,fw->program);
 	strcat(cmd, " | cut -d ' ' -f 3 | grep \"^");
 	strcat(cmd,suite);
@@ -210,7 +220,6 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
     testfw_register_symb(fw, suite, name);
     sum +=1;
   }
-
   pclose(f);
 
   return sum;
