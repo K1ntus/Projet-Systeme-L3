@@ -169,6 +169,7 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 		return NULL;
 	}
 
+	free(test_name);
   //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else SEGFAULT youhou :3
   return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
@@ -201,6 +202,7 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 
     name_length = path_length - suite_length;
     char *name = (char*) malloc(sizeof(char) * name_length);
+		assert(name);
 
     for(unsigned int i = suite_length+1, j=0; j < name_length; i++,j++){
       name[j] = path[i];
@@ -208,6 +210,7 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 
     testfw_register_symb(fw, suite, name);
     sum +=1;
+
   }
 
   pclose(f);
