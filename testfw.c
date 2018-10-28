@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <assert.h>
 #include <string.h>
 
 #include <dlfcn.h>
@@ -85,16 +85,18 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
     strcpy(res->logfile, logfile);
   if(res->cmd)
     strcpy(res->cmd, cmd);
+	strcpy(res->program, program);
 
 	return res;
 }
 
 void testfw_free(struct testfw_t *fw) {
   for(unsigned int i = fw->nb_tests; i > 0; i--){
-		if(fw->tests[i] != NULL)
+		if(fw->tests[i])
     	free(fw->tests[i]);
   }
-  free(fw->tests);
+	if(fw->tests)
+  	free(fw->tests);
 
   if(fw->cmd)
     free(fw->cmd);
@@ -103,8 +105,8 @@ void testfw_free(struct testfw_t *fw) {
   if(fw->program)
     free(fw->program);
 
-
-  free(fw);
+	if(fw)
+  	free(fw);
 }
 
 int testfw_length(struct testfw_t *fw)  {
@@ -173,24 +175,17 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 }
 
 int testfw_register_suite(struct testfw_t *fw, char *suite) {
-  /*
-  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
-  strcat(cmd, "nm --defined-only ./");
-  strcat(cmd,fw->program);
-  strcat(cmd, " | cut -d ' ' -f 3 | grep \"");
-  strcat(cmd,suite);
-  strcat(cmd,"\"");
-*/
+
+
   if(suite == NULL || fw == NULL)
 		return 0;
 
-  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen("nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"\"")));
-	if(cmd == NULL)
-		return 0;
-
-  strcat(cmd, "nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"^");
-  strcat(cmd,suite);
-  strcat(cmd,"\"");
+	char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
+	strcat(cmd, "nm --defined-only ");
+	strcat(cmd,fw->program);
+	strcat(cmd, " | cut -d ' ' -f 3 | grep \"^");
+	strcat(cmd,suite);
+	strcat(cmd,"\"");
 
 	FILE * f = popen(cmd,"r");
 	assert(f);
