@@ -90,8 +90,9 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 }
 
 void testfw_free(struct testfw_t *fw) {
-  if(fw->tests[0])
-		free(fw->tests[0]);
+	for(unsigned int i = 0; i < fw->nb_tests; i++)
+	  if(fw->tests[i])
+			free(fw->tests[i]);
 	if(fw->tests)
   	free(fw->tests);
 
