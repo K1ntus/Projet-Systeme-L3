@@ -99,8 +99,8 @@ void testfw_free(struct testfw_t *fw) {
 	if(strcmp(fw->cmd, "\0") != 0)
     free(fw->cmd);
 	if(strcmp(fw->logfile, "\0") != 0)
-    	free(fw->logfile);
-    free(fw->program);
+  	free(fw->logfile);
+  free(fw->program);
 
 	if(fw)
   	free(fw);
@@ -111,7 +111,10 @@ int testfw_length(struct testfw_t *fw)  {
 }
 
 struct test_t *testfw_get(struct testfw_t *fw, int k) {
-  return fw->tests[k];
+	if(k < fw->nb_tests)
+  	return fw->tests[k];
+	else
+		return NULL;
 }
 
 /* ********** REGISTER TEST ********** */
@@ -122,9 +125,9 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 		res -> name = name;
 		res -> func = func;
 
-		struct test_t *tmp = (struct test_t*)realloc(fw->tests[0], (fw->nb_tests+1)*sizeof(struct test_t));
+		struct test_t **tmp = (struct test_t**)realloc(fw->tests, (fw->nb_tests+1)*sizeof(struct test_t*));
 		if (tmp != NULL) {
-		    fw->tests[0] = tmp;
+		    fw->tests = tmp;
 		} else {
 		    // Do something about the failed allocation
 		}
