@@ -36,7 +36,6 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
     fprintf(stderr, "Invalid memory allocation\n");
   }
 
-
 	res->tests = (struct test_t **) malloc(sizeof(struct test_t *));
 	if(!res->tests)
 		return NULL;
@@ -47,29 +46,26 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 
 	res->nb_tests = 0;
 
-
 //STRLEN ON NULL => segfault, so Im using null character to manage those case
-    res->program = (char *) malloc(sizeof(char) * (strlen(program) + 1));
+  res->program = (char *) malloc(sizeof(char) * (strlen(program) + 1));
 
   if(logfile != NULL){
-		res->logfile = (char *) malloc(sizeof(char));
     res->logfile = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
   }else{
     res->logfile = "\0";
 	}
 
 	 if(cmd != NULL){
-		res->cmd = (char *) malloc(sizeof(char));
     res->cmd = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
   }else{
     res->cmd = "\0";
 	}
 
-
   if(timeout > 0)
     res->timeout = timeout;
   else
     res->timeout = 0;
+
 
   if (silent == true){
     res->silent = true;
@@ -111,7 +107,7 @@ int testfw_length(struct testfw_t *fw)  {
 }
 
 struct test_t *testfw_get(struct testfw_t *fw, int k) {
-	if(k < fw->nb_tests)
+	if(k < fw->nb_tests && k >= 0)
   	return fw->tests[k];
 	else
 		return NULL;
@@ -139,11 +135,10 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 
 
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
-
   unsigned int name_length  = 0;
   unsigned int suite_length = 0;
 
-	if(!suite || ! name || !fw)
+	if(!suite || !name || !fw)
 		return NULL;
 
   suite_length = strlen(suite);
@@ -162,25 +157,24 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 
   func =  dlsym(handle_sym, test_name);	//Return null if no equivalence found in this file
 
-	error = dlerror();
-	if(error == NULL){
+	if((error = dlerror()) == NULL){
     fputs (dlerror(), stderr);
 		dlclose(handle_sym);
 		return NULL;
 	}
 
 	free(test_name);
-  //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else SEGFAULT youhou :3
+  //dlclose(handle_sym);  //Had to keep the handler opened to let those function visible for the program. Else SEGFAULT youhou :3
   return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
 int testfw_register_suite(struct testfw_t *fw, char *suite) {
-
-
-  if(suite == NULL || fw == NULL)
+  if(!suite || !fw)
 		return 0;
 
 	char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
+	assert(cmd);
+
 	strcpy(cmd, "nm --defined-only ");
 	strcat(cmd,fw->program);
 	strcat(cmd, " | cut -d ' ' -f 3 | grep \"^");
@@ -201,7 +195,7 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
       path_length = strlen(path);
 
     name_length = path_length - suite_length;
-    char *name = (char*) malloc(sizeof(char) * name_length);
+    char * name = (char*) malloc(sizeof(char) * name_length);		//memleak probably there mew :3
 		assert(name);
 
     for(unsigned int i = suite_length+1, j=0; j < name_length; i++,j++){
