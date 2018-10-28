@@ -30,7 +30,6 @@ struct testfw_t  {
 
 /* ********** FRAMEWORK ********** */
 
-//make some mem test there plz
 struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cmd, bool silent, bool verbose) {
   struct testfw_t* res = (struct testfw_t*) malloc(sizeof(struct testfw_t));
   if(!res){
@@ -38,7 +37,7 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
   }
 
 
-	res->tests = (struct test_t **) malloc(sizeof(struct test_t *)*2);
+	res->tests = (struct test_t **) malloc(sizeof(struct test_t *));
 	if(!res->tests)
 		return NULL;
 	res->tests[0] = NULL;
@@ -49,7 +48,7 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 	res->nb_tests = 0;
 
 
-//STRLEN ON NULL => segfault
+//STRLEN ON NULL => segfault, so Im using null character to manage those case
     res->program = (char *) malloc(sizeof(char) * (strlen(program) + 1));
 
   if(logfile != NULL){
