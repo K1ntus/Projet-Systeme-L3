@@ -42,7 +42,7 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 	if(!res->tests){
 	  fprintf(stderr, "Invalid memory allocation to save the tests data\n");
 	}
-  
+
 	res->nb_tests = 0;
 
 
@@ -91,7 +91,8 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 
 void testfw_free(struct testfw_t *fw) {
   for(unsigned int i = fw->nb_tests; i > 0; i--){
-    free(fw->tests[i]);
+		if(fw->tests[i] != NULL)
+    	free(fw->tests[i]);
   }
   free(fw->tests);
 
@@ -102,7 +103,7 @@ void testfw_free(struct testfw_t *fw) {
   if(fw->program)
     free(fw->program);
 
-  
+
   free(fw);
 }
 
@@ -135,33 +136,34 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
   unsigned int name_length  = 0;
   unsigned int suite_length = 0;
 
-  if(suite != NULL)
-    suite_length = strlen(suite);
-  if(name != NULL)
-    name_length = strlen(name);
+	if(!suite || ! name || !fw)
+		return NULL;
+
+  suite_length = strlen(suite);
+  name_length = strlen(name);
 
   char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
+
   strcat(test_name, suite);
-  strcat(test_name, "_");
+	strcat(test_name, "_");
   strcat(test_name, name);
 
 
-  void * handle_sym;
+  void * handle_sym = dlopen("./sample", RTLD_NOW);;
   void * (*func) (int argc, char*argv);
-  char * error;
 
   dlerror();  //clear error code
 
 
-  handle_sym = dlopen("./sample", RTLD_NOW);
+  func = dlsym(handle_sym, test_name);
+
+
   if(!handle_sym){
     fputs (dlerror(), stderr);
-    exit(1);
+    //exit(1);
   }
-
-  func = dlsym(handle_sym, test_name);
   /*
-  if((error = dlerror()) != NULL){
+  if((error = dlerror()) != NULL){  //cause segfault when used from register suite idk why
     fputs (dlerror(), stderr);
     exit(1);
   }*/
@@ -179,25 +181,27 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
   strcat(cmd,suite);
   strcat(cmd,"\"");
 */
-  
-  int sum =0;
+  if(suite == NULL || fw == NULL)
+		return 0;
 
   char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen("nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"\"")));
+	if(cmd == NULL)
+		return 0;
+
   strcat(cmd, "nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"^");
   strcat(cmd,suite);
   strcat(cmd,"\"");
 
-  FILE * f = popen(cmd,"r");
-  char path[1024];
+	FILE * f = popen(cmd,"r");
+	assert(f);
+	char path[1024];
 
+  unsigned int sum          = 0;
   unsigned int name_length  = 0;
-  unsigned int suite_length = 0;
+  unsigned int suite_length = strlen(suite);
   unsigned int path_length  = 0;
 
   while(fgets(path, sizeof(path) -1, f) != NULL){  //print the output line per line
-    if (suite != NULL)
-      suite_length = strlen(suite);
-
     if(path != NULL)
       path_length = strlen(path);
 
