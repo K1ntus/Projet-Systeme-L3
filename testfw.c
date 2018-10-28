@@ -41,7 +41,7 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 	res->tests = (struct test_t **) malloc(sizeof(struct test_t *)*2);
 	if(!res->tests)
 		return NULL;
-	res->tests[0] = (struct test_t *) malloc(sizeof(struct test_t));
+	res->tests[0] = NULL;
 	if(!res->tests){
 	  fprintf(stderr, "Invalid memory allocation to save the tests data\n");
 	}
@@ -56,7 +56,6 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 		res->logfile = (char *) malloc(sizeof(char));
     res->logfile = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
   }else{
-		res->logfile = (char *) malloc(sizeof(char));
     res->logfile = "\0";
 	}
 
@@ -64,7 +63,6 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 		res->cmd = (char *) malloc(sizeof(char));
     res->cmd = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
   }else{
-		res->cmd = (char *) malloc(sizeof(char));
     res->cmd = "\0";
 	}
 
@@ -98,8 +96,10 @@ void testfw_free(struct testfw_t *fw) {
 	if(fw->tests)
   	free(fw->tests);
 
+	if(strcmp(fw->cmd, "\0") != 0)
     free(fw->cmd);
-    free(fw->logfile);
+	if(strcmp(fw->logfile, "\0") != 0)
+    	free(fw->logfile);
     free(fw->program);
 
 	if(fw)
@@ -121,11 +121,6 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 		res -> suite = suite;
 		res -> name = name;
 		res -> func = func;
-
-		//realloc fw->tests
-
-
-		fw->tests[0] = realloc(fw->tests[0],sizeof(struct test_t) * (fw->nb_tests+1));
 
 		struct test_t *tmp = (struct test_t*)realloc(fw->tests[0], (fw->nb_tests+1)*sizeof(struct test_t));
 		if (tmp != NULL) {
