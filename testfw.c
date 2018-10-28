@@ -155,27 +155,18 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 
   void * handle_sym = dlopen("./sample", RTLD_NOW);;
   void * (*func) (int argc, char*argv);
-	//void * error;
+	void * error;
 
   dlerror();  //clear error code
 
-  func =  dlsym(handle_sym, test_name);	//Return null if no
+  func =  dlsym(handle_sym, test_name);	//Return null if no equivalence found in this file
 
-	//error = dlerror();
-	//if(error == NULL){
-    //fputs (dlerror(), stderr);
-		//dlclose(handle_sym);
-		//return NULL;
-	//}
-	/*
-  if(!handle_sym){
+	error = dlerror();
+	if(error == NULL){
     fputs (dlerror(), stderr);
-    exit(1);
-  }
-  if((error = dlerror()) != NULL){  //cause segfault when used from register suite idk why
-    fputs (dlerror(), stderr);
-    exit(1);
-  }*/
+		dlclose(handle_sym);
+		return NULL;
+	}
 
   //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else SEGFAULT youhou :3
   return testfw_register_func(fw, suite, name, (testfw_func_t) func);
