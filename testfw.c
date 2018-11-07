@@ -142,41 +142,30 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
 
-  unsigned int name_length  = 0;
+	unsigned int name_length  = 0;
   unsigned int suite_length = 0;
 
-	if(!suite || !name || !fw)
+	if(!suite || ! name || !fw)
 		return NULL;
 
   suite_length = strlen(suite);
   name_length = strlen(name);
 
-  char *test_name = malloc(sizeof(char) * (name_length + suite_length + 3));
+  char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
   strcpy(test_name, suite);
 	strcat(test_name, "_");
   strcat(test_name, name);
-  strcat(test_name, "\n");
 
-  void * handle_sym = dlopen(fw->program, RTLD_NOW);;
+  void * handle_sym = dlopen("./sample", RTLD_NOW);;
   void * (*func) (int argc, char*argv);
-	void * error;
+	//void * error;
 
   dlerror();  //clear error code
 
-  func =  dlsym(handle_sym, test_name);	//Return null if no equivalence found in this file
-
-	if((error = dlerror()) == NULL){
-    //fputs (dlerror(), stderr);
-		dlclose(handle_sym);
-		free(test_name);
-		return NULL;
-	}
+  func =  dlsym(handle_sym, test_name);	//Return null if no
 
 	free(test_name);
-	//printf("SUITE:%s, NAME:%s\n",suite,name);
-
-  //dlclose(handle_sym);  //Had to keep the handler opened to let those function visible for the program. Else SEGFAULT youhouu
-  return testfw_register_func(fw, suite, name, (testfw_func_t) func);
+	return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
 int testfw_register_suite(struct testfw_t *fw, char *suite) {
