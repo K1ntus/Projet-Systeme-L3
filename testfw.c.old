@@ -1,0 +1,223 @@
+#define _GNU_SOURCE
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "testfw.h"
+
+#define NB_TESTS 15
+
+/* ********** STRUCTURES ********** */
+
+struct testfw_t {
+  struct test_t * test;
+
+	char * program;
+	char * logFile;
+	char * cmd;
+
+	int timeout;
+
+	bool silent;
+	bool verbose;
+};
+
+/* ********** FRAMEWORK ********** */
+//handle les segfault avec setjmp longjmp
+struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cmd, bool silent, bool verbose) {
+  struct testfw_t* res = (struct testfw_t*) malloc(sizeof(struct testfw_t));
+  if(!res){
+    fprintf(stderr, "Invalid memory allocation\n");
+  }
+
+  res->program = (char *) malloc(sizeof(char)*32);
+  if(!res->program){
+    fprintf(stderr, "Invalid memory allocation to save the program executable name\n");
+  }
+
+  res->logFile = (char *) malloc(sizeof(char) *32);
+  if(!res->logFile){
+    fprintf(stderr, "Invalid memory allocation to save the logFile name\n");
+  }
+
+  res->cmd = (char *) malloc(sizeof(char));
+  if(!res->cmd){
+    fprintf(stderr, "Invalid memory allocation to save the cmd\n");
+  }
+
+  res->test = (struct test_t *) malloc(sizeof(struct test_t) * NB_TESTS);
+  if(!res->test){
+    fprintf(stderr, "Invalid memory allocation to save test array\n");
+  }
+
+  if(timeout == 0)
+    res->timeout = 0;
+  else
+    res->timeout = timeout;
+
+  if (silent == true){
+    res->silent = true;
+    res->verbose = false;
+  }else{
+    res->silent = false;
+    res->verbose = true;
+  }
+
+  res->program = program;
+  res->logFile = logfile;
+  res->cmd = cmd;
+
+  return res;
+}
+
+void testfw_free(struct testfw_t *fw) {
+	//Add memory tests
+  free(fw->program);
+  free(fw->logFile);
+  free(fw->cmd);
+  free(fw->test);
+  free(fw);
+}
+
+int testfw_length(struct testfw_t *fw)
+{
+  unsigned int sum = 0;
+
+  return sum;
+}
+
+struct test_t *testfw_get(struct testfw_t *fw, int k)
+{
+    return NULL;
+}
+
+/* ********** REGISTER TEST ********** */
+
+struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name, testfw_func_t func)
+{
+    return NULL;
+}
+
+struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name)
+{
+    return NULL;
+}
+
+int testfw_register_suite(struct testfw_t *fw, char *suite)
+{
+    return 0;
+}
+
+/* ********** RUN TEST ********** */
+
+int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode)
+{
+    return 0;
+}
+s -> func = func;
+
+		//realloc fw->tests
+		fw->tests[fw->nb_tests] = res;
+		fw->nb_tests += 1;
+
+		return res;
+}
+
+
+struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
+
+  unsigned int name_length  = 0;
+  unsigned int suite_length = 0;
+
+  if(suite != NULL)
+    suite_length = strlen(suite);
+  if(name != NULL)
+    name_length = strlen(name);
+
+  char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
+  strcat(test_name, suite);
+  strcat(test_name, "_");
+  strcat(test_name, name);
+
+
+  void * handle_sym;
+  void * (*func) (int argc, char*argv);
+  char * error;
+
+  dlerror();  //clear error code
+
+
+  handle_sym = dlopen("./sample", RTLD_NOW);
+  if(!handle_sym){
+    fputs (dlerror(), stderr);
+    exit(1);
+  }
+
+  func = dlsym(handle_sym, test_name);
+
+  /*
+  if((error = dlerror()) != NULL){  //cause segfault when used from register suite idk why
+    fputs (dlerror(), stderr);
+    exit(1);
+  }*/
+
+  //dlclose(handle_sym);  //Had to keep the handler opened to let those functionion visible. Else SEGFAULT youhou :3
+  return testfw_register_func(fw, suite, name, (testfw_func_t) func);
+}
+
+int testfw_register_suite(struct testfw_t *fw, char *suite) {
+  /*
+  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
+  strcat(cmd, "nm --defined-only ./");
+  strcat(cmd,fw->program);
+  strcat(cmd, " | cut -d ' ' -f 3 | grep \"");
+  strcat(cmd,suite);
+  strcat(cmd,"\"");
+*/
+  
+
+  char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen("nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"\"")));
+  strcat(cmd, "nm --defined-only ./sample | cut -d ' ' -f 3 | grep \"^");
+  strcat(cmd,suite);
+  strcat(cmd,"\"");
+
+  FILE * f = popen(cmd,"r");
+  char path[1024];
+
+  unsigned int sum          = 0;
+  unsigned int name_length  = 0;
+  unsigned int suite_length = 0;
+  unsigned int path_length  = 0;
+
+  while(fgets(path, sizeof(path) -1, f) != NULL){  //print the output line per line
+    if (suite != NULL)
+      suite_length = strlen(suite);
+
+    if(path != NULL)
+      path_length = strlen(path);
+
+    name_length = path_length - suite_length;
+    char *name = (char*) malloc(sizeof(char) * name_length);
+
+    for(unsigned int i = suite_length+1, j=0; j < name_length; i++,j++){
+      name[j] = path[i];
+    }
+
+    testfw_register_symb(fw, suite, name);
+    sum +=1;
+  }
+
+  pclose(f);
+
+  return sum;
+}
+
+/* ********** RUN TEST ********** */
+
+int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode)
+{
+	/*for(unsigned int i = 0; i < fw->nb_tests; i++){
+		fw->tests[i]->func(argc, argv);
+	}*/
+  return EXIT_SUCCESS;
+}

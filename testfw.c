@@ -31,17 +31,19 @@ struct testfw_t  {
 /* ********** FRAMEWORK ********** */
 
 struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cmd, bool silent, bool verbose) {
+	//printf("Program: %s\n timeout=%d\n logfile=%s\n cmd=%s\n", program, timeout, logfile, cmd);
   struct testfw_t* res = (struct testfw_t*) malloc(sizeof(struct testfw_t));
   if(!res){
     fprintf(stderr, "Invalid memory allocation\n");
+		free(res);
+		return NULL;
   }
 
 	res->tests = (struct test_t **) malloc(sizeof(struct test_t *));
-	if(!res->tests)
-		return NULL;
-	res->tests[0] = NULL;
 	if(!res->tests){
-	  fprintf(stderr, "Invalid memory allocation to save the tests data\n");
+	  fprintf(stderr, "Invalid memory allocation to save the tests array\n");
+		testfw_free(res);
+		return NULL;
 	}
 
 	res->nb_tests = 0;
@@ -52,12 +54,14 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
   if(logfile != NULL){
     res->logfile = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
   }else{
+	  //fprintf(stderr, "Logfile value is null\n");
     res->logfile = "\0";
 	}
 
-	 if(cmd != NULL){
+	if(cmd != NULL){
     res->cmd = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
   }else{
+	  //fprintf(stderr, "cmd value is null\n");
     res->cmd = "\0";
 	}
 
@@ -93,13 +97,15 @@ void testfw_free(struct testfw_t *fw) {
   	free(fw->tests);
 
 	if(strcmp(fw->cmd, "\0") != 0)
-    free(fw->cmd);
+		if(fw->cmd)
+    	free(fw->cmd);
 	if(strcmp(fw->logfile, "\0") != 0)
-  	free(fw->logfile);
-  free(fw->program);
+		if(fw->logfile)
+  		free(fw->logfile);
 
-	if(fw)
-  	free(fw);
+	free(fw->program);
+
+  free(fw);
 }
 
 int testfw_length(struct testfw_t *fw)  {
@@ -135,6 +141,7 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 
 
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
+
   unsigned int name_length  = 0;
   unsigned int suite_length = 0;
 
@@ -144,12 +151,13 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
   suite_length = strlen(suite);
   name_length = strlen(name);
 
-  char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
+  char *test_name = malloc(sizeof(char) * (name_length + suite_length + 3));
   strcpy(test_name, suite);
 	strcat(test_name, "_");
   strcat(test_name, name);
+  strcat(test_name, "\n");
 
-  void * handle_sym = dlopen("./sample", RTLD_NOW);;
+  void * handle_sym = dlopen(fw->program, RTLD_NOW);;
   void * (*func) (int argc, char*argv);
 	void * error;
 
@@ -158,13 +166,16 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
   func =  dlsym(handle_sym, test_name);	//Return null if no equivalence found in this file
 
 	if((error = dlerror()) == NULL){
-    fputs (dlerror(), stderr);
+    //fputs (dlerror(), stderr);
 		dlclose(handle_sym);
+		free(test_name);
 		return NULL;
 	}
 
 	free(test_name);
-  //dlclose(handle_sym);  //Had to keep the handler opened to let those function visible for the program. Else SEGFAULT youhou :3
+	//printf("SUITE:%s, NAME:%s\n",suite,name);
+
+  //dlclose(handle_sym);  //Had to keep the handler opened to let those function visible for the program. Else SEGFAULT youhouu
   return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
@@ -186,16 +197,17 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 	char path[1024];
 
   unsigned int sum          = 0;
-  unsigned int name_length  = 0;
   unsigned int suite_length = strlen(suite);
   unsigned int path_length  = 0;
 
   while(fgets(path, sizeof(path) -1, f) != NULL){  //print the output line per line
+  	unsigned int name_length  = 0;
+
     if(path != NULL)
       path_length = strlen(path);
 
     name_length = path_length - suite_length;
-    char * name = (char*) malloc(sizeof(char) * name_length);		//memleak probably there mew :3
+    char * name = (char*) malloc(sizeof(char) * (name_length+1));		//memleak there
 		assert(name);
 
     for(unsigned int i = suite_length+1, j=0; j < name_length; i++,j++){
