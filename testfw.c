@@ -90,9 +90,13 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 }
 
 void testfw_free(struct testfw_t *fw) {
-	for(unsigned int i = 0; i < fw->nb_tests; i++)
-		if(fw->tests[i])
+	for(unsigned int i = 0; i < fw->nb_tests; i++){
+		if(fw->tests[i]){
+			free(fw->tests[i]->suite);
+			free(fw->tests[i]->name);
 			free(fw->tests[i]);
+		}
+	}
 	if(fw->tests)
 		free(fw->tests);
 
@@ -123,9 +127,23 @@ struct test_t *testfw_get(struct testfw_t *fw, int k) {
 
 struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name, testfw_func_t func)	{
 	struct test_t *res = (struct test_t *) malloc(sizeof(struct test_t));
-	res -> suite = suite;
-	res -> name = name;
-	res -> func = func;
+	char * suite1 = (char *) malloc(sizeof(suite));
+	char * name1 = (char *) malloc(sizeof(name));
+	testfw_func_t * fun = malloc(sizeof(func));
+
+	*fun = func;
+	if(suite != NULL)
+		strcpy(suite1,suite);
+	else
+		suite1 = "\0";
+	if(name != NULL)
+		strcpy(name1, name);
+	else
+		name1="\0";
+
+	res -> suite = suite1;
+	res -> name = name1;
+	res -> func = *fun;
 
 	struct test_t **tmp = (struct test_t**)realloc(fw->tests, (fw->nb_tests+1)*sizeof(struct test_t*));
 	if (tmp != NULL) {
@@ -133,6 +151,9 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 	} else {
 		free(res);
 		free(tmp);
+		free(fun);
+		free(suite1);
+		free(name1);
 		return NULL;
 	}
 
@@ -144,7 +165,7 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
 	unsigned int name_length	= 0;
-		unsigned int suite_length = 0;
+	unsigned int suite_length = 0;
 
 	if(!suite || ! name || !fw)
 		return NULL;
