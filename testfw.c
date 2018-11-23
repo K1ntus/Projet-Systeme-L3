@@ -4,9 +4,14 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include <dlfcn.h>
-
+#include <unistd.h>
 #include "testfw.h"
 
 /* ********** STRUCTURES ********** */
@@ -178,7 +183,7 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 	strcat(test_name, "_");
 	strcat(test_name, name);
 
-	void * handle_sym = dlopen(fw->program, RTLD_NOW);;
+	void * handle_sym = dlopen(fw->program, RTLD_NOW);
 	void * (*func) (int argc, char*argv);
 	//void * error;
 
@@ -234,12 +239,79 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 	return sum;
 }
 
-/* ********** RUN TEST ********** */
+/* ********** RUN TEST **********
 
-int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode)
-{
-	/*for(unsigned int i = 0; i < fw->nb_tests; i++){
-		fw->tests[i]->func(argc, argv);
-	}*/
+****** A utiliser ******
+strsignal()
+gettimeofday()
+popen()/pclose()
+setjmp / longjmp
+alarm(124)
+*/
+
+
+void myhandler(int sig) {
+	printf("eifjseijf\n");
+}
+
+int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode){
+    if(!fw | !argv){
+      fprintf(stderr, "Null pointer arguments\n");
+      return EXIT_FAILURE;
+    }
+    /*if(argc <= 0){
+      fprintf(stderr, "Number of arguments invalid\n");
+      return EXIT_FAILURE;
+    }*/
+    int cpt = 0;
+
+    pid_t pid = fork();
+
+    int fd = open("logfile", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+    if(!fd){
+      fprintf(stderr, "Couldn't open file\n");
+      return EXIT_FAILURE;
+    }
+		// a copier dans le père
+		/*struct sigaction act;
+	  act.sa_handler = myhandler;
+	  act.sa_flags = 0;
+	  sigemptyset(&act.sa_mask); */
+
+
+		for(unsigned int i = 0; i < fw->nb_tests; i++){
+
+			fw->tests[i]->func(argc, argv);
+		}
+		//char * cmd;
+  /* = switch (mode){
+      case TESTFW_FORKS :
+        if(pid == 0){
+
+					//dup2(fd, 1);
+        	for(unsigned int i = 0; i < fw->nb_tests; i++){
+        		fw->tests[i]->func(argc, argv);
+						fprintf(stderr, "Test\n");
+						cpt++;
+						//execlp(cmd, cmd, NULL);
+      	   }
+          //insert pipe somewhere
+         }else{
+           //I had no idea here
+            //wait(NULL);
+         }
+				 close(fd);
+         return cpt;
+
+       case TESTFW_FORKP :
+        return cpt;
+
+       case TESTFW_NOFORK :
+        return cpt;
+
+        default:
+          return cpt;
+        }
+				*/
 	return EXIT_SUCCESS;
 }
