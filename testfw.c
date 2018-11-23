@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <signal.h>
 #include "testfw.h"
 
 /* ********** STRUCTURES ********** */
@@ -251,7 +252,20 @@ alarm(124)
 
 
 void myhandler(int sig) {
-	printf("eifjseijf\n");
+	switch(sig){
+		case SIGSEGV:
+			fprintf(stderr, "cas segfault\n");
+			break;
+		case SIGALRM:
+			fprintf(stderr, "cas alarme ou sleep\n");
+			break;
+		case SIGABRT:
+			fprintf(stderr, "cas assert, signal abort\n");
+			break;
+		default:
+			fprintf(stderr,"Signal %d\n", sig);
+			break;
+	}
 }
 
 int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode){
@@ -265,7 +279,7 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
     }*/
     int cpt = 0;
 
-    pid_t pid = fork();
+
 
     int fd = open("logfile", O_CREAT | O_TRUNC | O_WRONLY, 0644);
     if(!fd){
@@ -273,45 +287,35 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
       return EXIT_FAILURE;
     }
 		// a copier dans le père
-		/*struct sigaction act;
-	  act.sa_handler = myhandler;
-	  act.sa_flags = 0;
-	  sigemptyset(&act.sa_mask); */
 
 
-		for(unsigned int i = 0; i < fw->nb_tests; i++){
-
-			fw->tests[i]->func(argc, argv);
-		}
-		//char * cmd;
-  /* = switch (mode){
-      case TESTFW_FORKS :
+		pid_t pid = fork();
         if(pid == 0){
-
+						struct sigaction act;
+						act.sa_handler = myhandler;
+						act.sa_flags = 0;
+						sigemptyset(&act.sa_mask);
+						sigaction(SIGALRM,&act,NULL);
+						sigaction(SIGSEGV,&act,NULL);
+						sigaction(SIGABRT,&act,NULL);
 					//dup2(fd, 1);
         	for(unsigned int i = 0; i < fw->nb_tests; i++){
+						fprintf(stderr, "Test numéro: %d\n", i);
+						fprintf(stderr, "Test name: %s\n", fw->tests[i]->name);
+					 	alarm(fw->timeout);
         		fw->tests[i]->func(argc, argv);
-						fprintf(stderr, "Test\n");
+
 						cpt++;
 						//execlp(cmd, cmd, NULL);
       	   }
-          //insert pipe somewhere
+          //insert pipe somewhere*/
          }else{
            //I had no idea here
-            //wait(NULL);
+            wait(WUNTRACED);
          }
 				 close(fd);
          return cpt;
 
-       case TESTFW_FORKP :
-        return cpt;
-
-       case TESTFW_NOFORK :
-        return cpt;
-
-        default:
-          return cpt;
-        }
-				*/
 	return EXIT_SUCCESS;
 }
+
