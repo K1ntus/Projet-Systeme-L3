@@ -4,11 +4,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <unistd.h>
@@ -249,18 +248,28 @@ popen()/pclose()
 setjmp / longjmp
 alarm(124)
 */
-
+static alarm1;
+static abrt1;
 
 void myhandler(int sig) {
+
+
 	switch(sig){
 		case SIGSEGV:
-			fprintf(stderr, "cas segfault\n");
+		  abrt1 =1;
+			fprintf(stderr, "[KILLED]");
 			break;
 		case SIGALRM:
-			fprintf(stderr, "cas alarme ou sleep\n");
+			alarm1 = 1;
+			fprintf(stderr, "[TIMEOUT]");
 			break;
 		case SIGABRT:
-			fprintf(stderr, "cas assert, signal abort\n");
+			abrt1 =1;
+			fprintf(stderr, "[KILLED]");
+			break;
+		case SIGKILL:
+			abrt1 =1;
+			fprintf(stderr, "[KILLED]");
 			break;
 		default:
 			fprintf(stderr,"Signal %d\n", sig);
@@ -280,17 +289,22 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
     int cpt = 0;
 
 
-
+		/*
     int fd = open("logfile", O_CREAT | O_TRUNC | O_WRONLY, 0644);
     if(!fd){
       fprintf(stderr, "Couldn't open file\n");
       return EXIT_FAILURE;
-    }
+    }*/
 		// a copier dans le père
+
+		/*int wr[2];
+		pipe(wr);*/
+
 
 
 		pid_t pid = fork();
         if(pid == 0){
+					//dup2(fd, 1);
 						struct sigaction act;
 						act.sa_handler = myhandler;
 						act.sa_flags = 0;
@@ -298,12 +312,30 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 						sigaction(SIGALRM,&act,NULL);
 						sigaction(SIGSEGV,&act,NULL);
 						sigaction(SIGABRT,&act,NULL);
-					//dup2(fd, 1);
+						sigaction(SIGKILL,&act,NULL);
         	for(unsigned int i = 0; i < fw->nb_tests; i++){
-						fprintf(stderr, "Test numéro: %d\n", i);
-						fprintf(stderr, "Test name: %s\n", fw->tests[i]->name);
-					 	alarm(fw->timeout);
-        		fw->tests[i]->func(argc, argv);
+						abrt1 =0;
+						alarm1=0;
+						alarm(fw->timeout);
+						int time = 0;
+						int test = fw->tests[i]->func(argc,argv);
+
+						if(abrt1 == 1){
+							fprintf(stderr, " run test \"%s,%s\"\n", fw->tests[i]->suite,fw->tests[i]->name);
+
+						}
+						if(alarm1 == 1){
+							fprintf(stderr, " run test \"%s,%s\"\n",fw->tests[i]->suite, fw->tests[i]->name);
+						}else if (test == 0){
+							fprintf(stderr,"[SUCESS] run test \"%s,%s\"\n" ,fw->tests[i]->suite, fw->tests[i]->name);
+						}else if (test == 1){
+							fprintf(stderr,"[FAILURE] run test \"%s,%s\"\n" ,fw->tests[i]->suite,fw->tests[i]->name);
+						}
+						//fprintf(stderr, "Test numéro: %d\n", i);
+						//fprintf(stderr, "Test name: %s\n", fw->tests[i]->name);
+
+
+        		//fw->tests[i]->func(argc, argv);
 
 						cpt++;
 						//execlp(cmd, cmd, NULL);
@@ -311,11 +343,8 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
           //insert pipe somewhere*/
          }else{
            //I had no idea here
-            wait(WUNTRACED);
+            waitpid(pid,NULL,WUNTRACED);
          }
-				 close(fd);
+				 /*close(fd);*/
          return cpt;
-
-	return EXIT_SUCCESS;
 }
-
