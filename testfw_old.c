@@ -249,76 +249,107 @@ popen()/pclose()
 setjmp / longjmp
 alarm(124)
 */
+static alarm1;
+static abrt1;
+
+void myhandler(int sig) {
 
 
-void alarm_handler(void) {
-	exit(124);
-}
-
-void print_log(struct testfw_t * fw, int status, int test_id){
-	if(WIFSIGNALED(status)){
-		if(status == 14) { //Alarm clock value
-			printf("[TIMEOUT] run test \"%s.%s\" in xxxxx ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name);
-		}
-		printf("[KILLED] run test \"%s.%s\" in xxxxx ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, strsignal(status));
-
-	}	else {
-		if(status == 0)
-			printf("[SUCCESS] ");
-		else
-			printf("[FAILURE] ");
-		printf("run test \"%s.%s\" in xxxxx ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, WEXITSTATUS(status));
+	switch(sig){
+		case SIGSEGV:
+		  abrt1 =1;
+			fprintf(stderr, "[KILLED]");
+			break;
+		case SIGALRM:
+			alarm1 = 1;
+			fprintf(stderr, "[TIMEOUT]");
+			break;
+		case SIGABRT:
+			abrt1 =1;
+			fprintf(stderr, "[KILLED]");
+			break;
+		case SIGKILL:
+			abrt1 =1;
+			fprintf(stderr, "[KILLED]");
+			break;
+		default:
+			fprintf(stderr,"Signal %d\n", sig);
+			break;
 	}
 }
 
 int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode){
-  if(!fw || !argv){
-    fprintf(stderr, "Null pointer arguments\n");
-    return EXIT_FAILURE;
-  }
+    if(!fw || !argv){
+      fprintf(stderr, "Null pointer arguments\n");
+      return EXIT_FAILURE;
+    }
+    /*if(argc <= 0){
+      fprintf(stderr, "Number of arguments invalid\n");
+      return EXIT_FAILURE;
+    }*/
+    int cpt = 0;
 
-  unsigned nb_failed_tests = 0;
 
-	int saved = dup(1);	//Contains a copy to stdout
-	int out_file = open("logfile", O_CREAT | O_TRUNC | O_WRONLY, 0644);
-	int stdout = 1;
-	int stderr = 2;
-	int wstatus = 0, status = 0;
-	close(stderr);
-	close(stdout);
-	//dup2(out_file, 1);
-	//close(stdout);
+		/*
+    int fd = open("logfile", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+    if(!fd){
+      fprintf(stderr, "Couldn't open file\n");
+      return EXIT_FAILURE;
+    }*/
+		// a copier dans le père
 
-	for(unsigned int i = 0; i < fw->nb_tests; i++) {
+		/*int wr[2];
+		pipe(wr);*/
 
+		int saved = dup(1);	//Contains a copy to stdout
+
+		dup2(2, 1);
+		close(2);
 		pid_t pid = fork();
-		if(pid == 0){
-			struct sigaction act;
-			act.sa_handler = alarm_handler;
-			act.sa_flags = 0;
-			sigemptyset(&act.sa_mask);
-			sigaction(SIGALRM, NULL, NULL);
-			alarm(fw->timeout);
-			//dup2(fd, 1);
+        if(pid == 0){
+					//dup2(fd, 1);
+						struct sigaction act;
+						act.sa_handler = myhandler;
+						act.sa_flags = 0;
+						sigemptyset(&act.sa_mask);
+						sigaction(SIGALRM,&act,NULL);
+						sigaction(SIGSEGV,&act,NULL);
+						sigaction(SIGABRT,&act,NULL);
+						sigaction(SIGKILL,&act,NULL);
+        	for(unsigned int i = 0; i < fw->nb_tests; i++){
+						abrt1 =0;
+						alarm1=0;
+						alarm(fw->timeout);
+						int time = 0;
+						int test = fw->tests[i]->func(argc,argv);
 
-			exit(fw->tests[i]->func(argc,argv));
-		} else {
+						if(abrt1 == 1){
+							fprintf(stderr, "[KILLED] run test \"%s.%s\"\n", fw->tests[i]->suite,fw->tests[i]->name);
 
-			waitpid(pid,&status,WUNTRACED);
-			print_log(fw, status, i);
+						}
+						if(alarm1 == 1){
+							fprintf(stderr, " run test \"%s.%s\"\n",fw->tests[i]->suite, fw->tests[i]->name);
+						}else if (test == 0){
+							fprintf(stderr,"[SUCCESS] run test \"%s.%s\"\n" ,fw->tests[i]->suite, fw->tests[i]->name);
+						}else if (test == 1){
+							fprintf(stderr,"[FAILURE] run test \"%s.%s\"\n" ,fw->tests[i]->suite,fw->tests[i]->name);
+						}
+						//fprintf(stderr, "Test numéro: %d\n", i);
+						//fprintf(stderr, "Test name: %s\n", fw->tests[i]->name);
 
-			int status = WEXITSTATUS(wstatus);
 
+        		//fw->tests[i]->func(argc, argv);
 
-			if(WEXITSTATUS(wstatus) != 0){
-				nb_failed_tests += 1;
+						cpt++;
+						//execlp(cmd, cmd, NULL);
+      	   }
+          //insert pipe somewhere*/
+         }else{
+           //I had no idea here
+            waitpid(pid,NULL,WUNTRACED);
+										 dup2(saved, 1);
+         }
 
-			}
-
-		}
-
-		/*close(fd);*/
-	}
-	dup2(saved, 1);
-	return nb_failed_tests;
+				 /*close(fd);*/
+         return cpt;
 }

@@ -80,7 +80,7 @@ test.success
 
 * Attention de bien respecter ce format de sortie ! Pour mesurer le temps d'exécution d'un test, on utilisera la fonction gettimeofday(). Pour afficher le nom d'un signal à partir de son numéro, vous pouvez utiliser *strsignal()*.
 * Plusieurs modes d'éxécution sont possibles, mais on ne demandera d'implémenter que le mode TESTFW_FORKS, qui exécute tous les tests séquentiellement, c'est-à-dire les uns après les autres dans un processus fils (fork). En outre, on prendra en compte les options générales du framework :
-  * *timeout* : la commande est interrompue si elle dépasse une limite de temps (et elle renvoie le status 124) ; 
+  * *timeout* : la commande est interrompue si elle dépasse une limite de temps (et elle renvoie le status 124) ;
   * *logfile* : la sortie standard du test (et sa sortie d'erreur) sont redirigées dans un fichier ;
   * *cmd* : la sortie standard du test (et sa sortie d'erreur) sont redirigés sur l'entrée standard d'une commande shell grâce aux fonctions popen/pclose (cf. man).
 * A ce niveau, vous pouvez valider (partiellement) votre projet en exécutant les tests fourni avec CMake. Par exemple :
@@ -124,4 +124,3 @@ Total Test time (real) =  10.05 sec
 
 * En bonus, vous pouvez implémenter le mode TESTFW_FORKP qui exécute tous les tests en parallèle, c'est-à-dire concurrement dans plusieurs processus fils que l'on attendra tous à la fin... Une solution simple consiste à appeler le code de TESTFW_FORKS dans un nouveau processus fils, c'est-à-dire à faire un fork de fork !
 * En super-bonus, vous pouvez implémenter le mode TESTFW_NOFORK, qui exécute les tests sans aucun fork...
-
