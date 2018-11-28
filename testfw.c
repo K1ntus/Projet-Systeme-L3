@@ -255,19 +255,20 @@ void alarm_handler(void) {
 	exit(124);
 }
 
-void print_log(struct testfw_t * fw, int status, int test_id){
+void print_log(struct testfw_t * fw, int status, int test_id,double exec_time){
 	if(WIFSIGNALED(status)){
 		if(status == 14) { //Alarm clock value
-			printf("[TIMEOUT] run test \"%s.%s\" in xxxxx ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name);
+			printf("[TIMEOUT] run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
+		}else{
+			printf("[KILLED] run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
 		}
-		printf("[KILLED] run test \"%s.%s\" in xxxxx ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, strsignal(status));
 
 	}	else {
 		if(status == 0)
 			printf("[SUCCESS] ");
 		else
 			printf("[FAILURE] ");
-		printf("run test \"%s.%s\" in xxxxx ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, WEXITSTATUS(status));
+		printf("run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
 	}
 }
 
@@ -280,10 +281,10 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
   unsigned nb_failed_tests = 0;
 
 	int saved = dup(1);	//Contains a copy to stdout
-	int out_file = open("logfile", O_CREAT | O_TRUNC | O_WRONLY, 0644);
 	int stdout = 1;
 	int stderr = 2;
-	int wstatus = 0, status = 0;
+	int status = 0;
+
 	close(stderr);
 	close(stdout);
 	//dup2(out_file, 1);
@@ -296,21 +297,25 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			struct sigaction act;
 			act.sa_handler = alarm_handler;
 			act.sa_flags = 0;
+			alarm(fw->timeout);
 			sigemptyset(&act.sa_mask);
 			sigaction(SIGALRM, NULL, NULL);
-			alarm(fw->timeout);
 			//dup2(fd, 1);
 
 			exit(fw->tests[i]->func(argc,argv));
 		} else {
+			struct timeval begin, end;
+			gettimeofday(&begin, NULL);
 
 			waitpid(pid,&status,WUNTRACED);
-			print_log(fw, status, i);
+			gettimeofday(&end, NULL);
+			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (double)(end.tv_sec - begin.tv_sec);
+			print_log(fw, status, i, t);
 
-			int status = WEXITSTATUS(wstatus);
+			int status = WEXITSTATUS(status);
 
 
-			if(WEXITSTATUS(wstatus) != 0){
+			if(WEXITSTATUS(status) != 0){
 				nb_failed_tests += 1;
 
 			}
