@@ -282,7 +282,6 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
     return EXIT_FAILURE;
   }
 
-
 	int status = 0;
 
 	int stdout_saved = dup(STDOUT_FILENO);
@@ -356,6 +355,7 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 				print_log(fw, status, i, t,	cmd_fileDescriptor);
 
 				close(cmd_fileDescriptor);
+				pclose(cmd_file);
 			}
 
 
