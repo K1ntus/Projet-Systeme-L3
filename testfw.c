@@ -260,7 +260,7 @@ void print_log(struct testfw_t * fw, int status, int test_id, double exec_time){
 			fprintf(stdout, "[KILLED] ");
 
 		if(status == 14) { //Alarm clock value
-			fprintf(stdout, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name);
+			fprintf(stdout, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
 		}else{
 			fprintf(stdout, "run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
 		}
