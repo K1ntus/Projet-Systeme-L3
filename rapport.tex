@@ -10,15 +10,37 @@
 \maketitle
 
 \section{Introduction}
-Dans le cadre du projet de programmation système, nous avons du réaliser deux parties, A et B, dans le but de développer un framework de tests. Pour réaliser ce travail, nous avons utilisé l'outil de collaboration GitHub. Nous allons voir comment et quels choix nous avons fait pour  créer ce framework.
+Dans le cadre du projet de programmation système, nous avons du réaliser deux parties, A et B, dans le but de développer un framework de tests. Pour réaliser ce travail, nous avons utilisé l'outil de collaboration GitHub. Nous avons également travaillé avec l'outil Valgrind afin d'analyser toutes les allocations, libérations et accès à la mémoire. Nous avons également testé les fuites pour éviter que notre programme ne soit pas "gourmand".
+La première partie du projet sert principalement à créer une nouvelle structure, ainsi que des fonctions pour initaliser et libérer celle-ci. Nous enregistrons égalements des tests. La seconde partie permet de lancer l'exécution de tous les tests enregistrés, elle implémente également l'affichage si nécessaire du résultat des tests sur sa sortie standard.
+Nous allons voir dans ce rapport comment et quels choix nous avons fait pour créer ce framework.
     
    
 \section{Partie A}   
 \subsection{Structure testfw\_t}
-Le choix des champs d'une telle structure a été induite par les arguments de la fonction testfw\_init(). La structure est composée d'un nom de programme, un nom de fichier, une commande, un entier définissant le temps maximum d'un test avant d'être en "timeout", une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal, et enfin d'une variable booléenne verbose servant à afficher plus d'info sur le fonctionnement interne du framework de test.
+Le choix des champs d'une telle structure a été induite par les arguments de la fonction testfw\_init(), de plus, 
+ nous avons ajouté d'autres champs facilitant par la suite l'implémentation des fonctions. La structure est composée des champs suivants:
+ \begin{description}
+ \item[] Une structure 2D de tests de type struct test\_t définie dans le fichier testfw.h. 
+ \item[] Le nombre de tests contenus dans la structure précédente.
+ \item[] Le nom du fichier de l'executable. 
+ \item[] Le nom du fichier de logs dans lequel sera redirrigé tous les résultats de tests.
+ \item[] Une commande  permettant de redirriger tous les résultats de tests.
+ \item[] Un entier définissant le temps maximum d'un test avant d'être en "timeout".
+ \item[] Une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal. 
+ \item[] Une variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
+\end{description}
 \subsection{Fonction testfw\_init()}
+Cette fonction retourne un pointeur sur une nouvelle structure framework. Elle initialise un à un les champs de la structure. Nous avons veillé à bien allouer la mémoire nécessaire à l'affectation des variables. Nous avons donc utilisé la fonction malloc(). La première allocation est effectuée pour la variable de type struct testfw\_t, puis nous allouons la mémoire nécessaire pour le nombre de tests, le programme, le logfile, l'entier timeout, la commande, et les deux booléens silent et verbose. Pour chaque champs, la taille de l'allocation dépend de la taille de la variable passée en paramètre. Pour connaitre cette taille nous utilisons la fonction sizeof() renvoyant la valeur en octets. 
+
+
 \subsection{Fonction testfw\_free()}
+
+Comme nous avons précédemment alloué la mémoire sur la création d'une variable de type struct testfw\_t, il nous faut libérer l'espace mémoire correspondant pour éviter toute fuite. Nous libérons donc les champs un par un, puis nous libérons également la variable primitivement initialisée. Cette fonction ne retourne rien.
+
+
 \subsection{Fonction testfw\_length()}
+La fonction retourne le nombre de tests passés à une variable de type struct testfw\_t. Nous avons vu précedemment que nous avons choisi d'ajouter une variable de type entier à la structure afin de comptabiliser le nombre de tests à effectuer. Notre choix s'est porté sur cette implémentation car c'est selon nous la manière la plus rapide et efficace pour récupérer cette donnée.
+
 \subsection{Fonction testfw\_get()}
 \subsection{Fonction testfw\_register\_func()}
 \subsection{Fonction testfw\_register\_symb()}
@@ -26,6 +48,6 @@ Le choix des champs d'une telle structure a été induite par les arguments de l
  
 \section{Partie B}
 \subsection{Fonction testfw\_run\_all()}
-    
+  
 \end{document}
 
