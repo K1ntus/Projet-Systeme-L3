@@ -4,10 +4,10 @@
 #include "sample.h"
 
 #define TIMEOUT 2
-#define LOGFILE "test.log"
-#define SILENT true
+#define LOGFILE NULL
+#define SILENT false
 #define VERBOSE false
-#define COMMAND NULL
+#define COMMAND "ls"
 
 int main(int argc, char *argv[])
 {

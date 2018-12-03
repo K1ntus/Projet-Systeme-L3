@@ -61,20 +61,20 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 	int res_logfile = asprintf(&res->logfile, "%s",logfile);
 	int res_cmd = asprintf(&res->cmd, "%s",cmd);
 
-	if(res_program < 0){
-		res->program = "\0";
+	if(res_program <= 0){
+		res->program = NULL;
 	}
-	if(res_logfile < 0){
-		res->logfile = "\0";
+	if(res_logfile <= 0){
+		res->logfile = NULL;
 	}
-	if(res_cmd < 0){
-		res->cmd = "\0";
+	if(res_cmd <= 0){
+		res->cmd = NULL;
 	}
 
-	if(timeout > 0)
+	if(timeout >= 0)
 		res->timeout = timeout;
 	else
-		res->timeout = 0;
+		res->timeout = 2;
 
 
 	if (verbose == true)
@@ -106,12 +106,10 @@ void testfw_free(struct testfw_t *fw) {
 	if(fw->tests)
 		free(fw->tests);
 
-	if(strcmp(fw->cmd, "\0") != 0)
-		if(fw->cmd)
-			free(fw->cmd);
-	if(strcmp(fw->logfile, "\0") != 0)
-		if(fw->logfile)
-			free(fw->logfile);
+	if(fw->cmd)
+		free(fw->cmd);
+	if(fw->logfile)
+		free(fw->logfile);
 
 	free(fw->program);
 
@@ -203,7 +201,7 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 	char * cmd = NULL;
 	int cmd_res = asprintf(&cmd, "nm --defined-only %s | cut -d ' ' -f 3 | grep \"^%s_\"",fw->program, suite);
 	if(cmd_res < 0 || !cmd)
-		return NULL;
+		return 0;
 
 	FILE * f = popen(cmd, "r");
 	assert(f);
@@ -223,7 +221,6 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 		name_length = path_length - suite_length -1;
 		char * name = (char*) malloc(sizeof(char) * (name_length));		//memleak there
 		assert(name);
-		name[0] = "";
 
 		for(unsigned int i = suite_length+1, j=0; i < path_length-1; i++,j++){
 			name[j] = path[i];
@@ -251,7 +248,7 @@ alarm(124)
 
 pid_t child_pid = -1;
 
-void alarm_handler(void) {
+void alarm_handler(int sig) {
 	kill(child_pid, SIGTERM);
 }
 
@@ -290,21 +287,17 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 
 	int stdout_saved = dup(STDOUT_FILENO);
 	int stderr_saved = dup(STDERR_FILENO);
-
-	FILE* cmd_file;
-	int cmd_fileDescriptor;
-
 	int logfile_fileDescriptor;
-	//dup2(out_file, 1);
-	//close(stdout);
+	bool cmd_mode = false;
+
 
 	unsigned nb_failed_tests = 0;
 
 	if(fw->logfile){
 		logfile_fileDescriptor = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-	} else if(fw->cmd){
-		cmd_file = popen(fw->cmd, "w");
-		cmd_fileDescriptor = 	fileno(cmd_file);
+	}
+	if(fw->cmd){
+		cmd_mode = true;
 	}
 
 
@@ -320,7 +313,6 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			close(stdout_saved);
 			close(stderr_saved);
 			close(logfile_fileDescriptor);
-			close(cmd_fileDescriptor);
 
 			exit(fw->tests[i]->func(argc,argv));
 
@@ -348,25 +340,36 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			}
 
 //Switch the stdIO to write in the logfile
-			if(fw->logfile){
+			if(fw->logfile && !cmd_mode){
 				print_log(fw, status, i, t, logfile_fileDescriptor);
-			} else if(fw->cmd){	//Else, the same in the cmd input
+			}
+			if(cmd_mode){	//Else, the same in the cmd input
+				FILE * cmd_file = popen(fw->cmd, "w");
+				assert(cmd_file);
+
+				int	cmd_fileDescriptor = fileno(cmd_file);
 				//Popen, pclose, ...
-				print_log(fw, status, i, t, cmd_fileDescriptor);
+				if(cmd_fileDescriptor < 0){
+					close(cmd_fileDescriptor);
+					continue;
+				}
+				print_log(fw, status, i, t,	cmd_fileDescriptor);
+
+				close(cmd_fileDescriptor);
 			}
 
 
-			if(status != 0){	// If status != EXIT_SUCCESS
+			if(status != 0){	// If status success
 				nb_failed_tests += 1;
 			}
 
 			status = WEXITSTATUS(status);	//Deprecated
 		}
 	}
+
+	//Close every opened file descriptor
 	close(stdout_saved);
 	close(stderr_saved);
-	close(logfile_fileDescriptor);
-	close(cmd_fileDescriptor);
 
 	return nb_failed_tests;
 }
