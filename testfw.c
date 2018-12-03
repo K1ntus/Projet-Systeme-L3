@@ -256,25 +256,25 @@ void alarm_handler(void) {
 	kill(child_pid, SIGTERM);
 }
 
-void print_log(struct testfw_t * fw, int status, int test_id,double exec_time){
+void print_log(struct testfw_t * fw, int status, int test_id, double exec_time){
 	if(WIFSIGNALED(status)){
 		if(exec_time >= fw->timeout)
-			printf("[TIMEOUT] ");
+			fprintf(stdout, "[TIMEOUT] ");
 		else
-			printf("[KILLED] ");
+			fprintf(stdout, "[KILLED] ");
 
 		if(status == 14) { //Alarm clock value
-			printf("run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
+			fprintf(stdout, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
 		}else{
-			printf("run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
+			fprintf(stdout, "run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
 		}
 
 	}	else {
 		if(status == 0)
-			printf("[SUCCESS] ");
+			fprintf(stdout, "[SUCCESS] ");
 		else
-			printf("[FAILURE] ");
-		printf("run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
+			fprintf(stdout, "[FAILURE] ");
+		fprintf(stdout, "run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
 	}
 }
 
@@ -286,17 +286,14 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 
 
 	int saved = dup(1);	//Contains a copy to stdout
-	int stdout = 1;
-	int stderr = 2;
 	int status = 0;
 
-	close(stderr);
-	close(stdout);
 	//dup2(out_file, 1);
 	//close(stdout);
 
 
 		//dup2(fd, 1);
+
 	unsigned nb_failed_tests = 0;
 
 	for(unsigned int i = 0; i < fw->nb_tests; i++) {
@@ -304,10 +301,13 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 		child_pid = fork();
 
 		if(child_pid == 0){	//Child
+			close(STDERR_FILENO);
+			close(STDOUT_FILENO);
+
 			exit(fw->tests[i]->func(argc,argv));
 
 		} else {	//Main 'parent'
-			signal(SIGALRM,alarm_handler);
+			signal(SIGALRM, alarm_handler);
 
 			struct timeval begin, end;
 			gettimeofday(&begin, NULL);
@@ -317,11 +317,21 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			alarm(0);
 
 			gettimeofday(&end, NULL);
-			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (double)(end.tv_sec - begin.tv_sec);
+			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
 
-			print_log(fw, status, i, t);
+			if(!fw->silent)
+				print_log(fw, status, i, t);
 
-			if((status) != 0){
+			/*
+			if(fw->logfile){	//A log file has been pointed out
+				int logFile = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+				dup2(logFile, STDOUT_FILENO);
+				print_log(fw, status, i, t);
+			}
+			*/
+
+
+			if(status != 0){
 				nb_failed_tests += 1;
 			}
 
