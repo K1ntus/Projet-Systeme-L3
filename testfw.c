@@ -77,12 +77,17 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 		res->timeout = 0;
 
 
+	if (verbose == true)
+		res->verbose = true;
+	else
+		res->verbose = false;
+
+
 	if (silent == true){
 		res->silent = true;
 		res->verbose = false;
-	}else{
+	} else {
 		res->silent = false;
-		res->verbose = true;
 	}
 
 
@@ -250,27 +255,27 @@ void alarm_handler(void) {
 	kill(child_pid, SIGTERM);
 }
 
-void print_log(struct testfw_t * fw, int status, int test_id, double exec_time){
+void print_log(struct testfw_t * fw, int status, int test_id, double exec_time, int fd){
 	if(WIFSIGNALED(status)){
 		if(status == 14)
-			fprintf(stdout, "[KILLED] ");
+			dprintf(fd, "[KILLED] ");
 		else if(exec_time >= fw->timeout)
-			fprintf(stdout, "[TIMEOUT] ");
+			dprintf(fd, "[TIMEOUT] ");
 		else
-			fprintf(stdout, "[KILLED] ");
+			dprintf(fd, "[KILLED] ");
 
 		if(status == 14) { //Alarm clock value
-			fprintf(stdout, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
+			dprintf(fd, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
 		}else{
-			fprintf(stdout, "run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
+			dprintf(fd, "run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
 		}
 
 	}	else {
 		if(status == 0)
-			fprintf(stdout, "[SUCCESS] ");
+			dprintf(fd, "[SUCCESS] ");
 		else
-			fprintf(stdout, "[FAILURE] ");
-		fprintf(stdout, "run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
+			dprintf(fd, "[FAILURE] ");
+		dprintf(fd, "run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
 	}
 }
 
@@ -281,33 +286,41 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
   }
 
 
-	int saved = dup(1);	//Contains a copy to stdout
 	int status = 0;
 
+	int stdout_saved = dup(STDOUT_FILENO);
+	int stderr_saved = dup(STDERR_FILENO);
+
+	FILE* cmd_file;
+	int cmd_fileDescriptor;
+
+	int logfile_fileDescriptor;
 	//dup2(out_file, 1);
 	//close(stdout);
 
 	unsigned nb_failed_tests = 0;
-	
-	int fd;
-	if(fw->silent){
-		fd = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-		if(!fd){
-			exit(EXIT_FAILURE);
-		}
 
-		dup2(fd, STDOUT_FILENO);
-		close(STDOUT_FILENO);
+	if(fw->logfile){
+		logfile_fileDescriptor = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+	} else if(fw->cmd){
+		cmd_file = popen(fw->cmd, "w");
+		cmd_fileDescriptor = 	fileno(cmd_file);
 	}
 
-	for(unsigned int i = 0; i < fw->nb_tests; i++) {
 
+	for(unsigned int i = 0; i < fw->nb_tests; i++) {
 		child_pid = fork();
 
 		if(child_pid == 0){	//Child
-			close(STDERR_FILENO);
-			close(STDOUT_FILENO);
-			close(fd);
+			if(fw->silent || !fw->verbose){
+				close(STDERR_FILENO);
+				close(STDOUT_FILENO);
+			}
+
+			close(stdout_saved);
+			close(stderr_saved);
+			close(logfile_fileDescriptor);
+			close(cmd_fileDescriptor);
 
 			exit(fw->tests[i]->func(argc,argv));
 
@@ -324,17 +337,36 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			gettimeofday(&end, NULL);
 			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
 
-			print_log(fw, status, i, t);
+/**	Printing side **/
+//Reset the file stdI/O descriptor
+//Print the log in the console if the mode is NOT "silent"
+			if(!fw->silent){
+				dup2(stdout_saved, STDOUT_FILENO);
+				dup2(stderr_saved, STDERR_FILENO);
 
-			if(status != 0){
+				print_log(fw, status, i, t, stdout_saved);
+			}
+
+//Switch the stdIO to write in the logfile
+			if(fw->logfile){
+				print_log(fw, status, i, t, logfile_fileDescriptor);
+			} else if(fw->cmd){	//Else, the same in the cmd input
+				//Popen, pclose, ...
+				print_log(fw, status, i, t, cmd_fileDescriptor);
+			}
+
+
+			if(status != 0){	// If status != EXIT_SUCCESS
 				nb_failed_tests += 1;
 			}
 
-			status = WEXITSTATUS(status);
+			status = WEXITSTATUS(status);	//Deprecated
 		}
 	}
-	close(fd);
-	dup2(saved, STDOUT_FILENO);
+	close(stdout_saved);
+	close(stderr_saved);
+	close(logfile_fileDescriptor);
+	close(cmd_fileDescriptor);
 
 	return nb_failed_tests;
 }
