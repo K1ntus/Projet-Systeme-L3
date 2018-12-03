@@ -288,91 +288,53 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 	//close(stdout);
 
 	unsigned nb_failed_tests = 0;
-	printf("bool silent : %d\n", fw->silent);
-
-	if(fw->silent == false){
-		for(unsigned int i = 0; i < fw->nb_tests; i++) {
-
-			child_pid = fork();
-
-			if(child_pid == 0){	//Child
-				close(STDERR_FILENO);
-				close(STDOUT_FILENO);
-
-				exit(fw->tests[i]->func(argc,argv));
-
-			} else {	//Main 'parent'
-				signal(SIGALRM, alarm_handler);
-
-				struct timeval begin, end;
-				gettimeofday(&begin, NULL);
-
-				alarm(fw->timeout);
-				waitpid(child_pid, &status, WUNTRACED);
-				alarm(0);
-
-				gettimeofday(&end, NULL);
-				double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
-				print_log(fw, status, i, t);
-
-				/*
-				if(fw->logfile){	//A log file has been pointed out
-					int logFile = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-					dup2(logFile, STDOUT_FILENO);
-					print_log(fw, status, i, t);
-				}
-				*/
-
-
-				if(status != 0){
-					nb_failed_tests += 1;
-				}
-
-				status = WEXITSTATUS(status);
-			}
-		}
-		dup2(saved, 1);
-	}else{
-		int fd = open("logfile.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+	
+	int fd;
+	if(fw->silent){
+		fd = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
 		if(!fd){
 			exit(EXIT_FAILURE);
 		}
+
 		dup2(fd, STDOUT_FILENO);
 		close(STDOUT_FILENO);
-		for(unsigned int i = 0; i < fw->nb_tests; i++) {
-
-			child_pid = fork();
-
-			if(child_pid == 0){	//Child
-				close(STDERR_FILENO);
-				close(STDOUT_FILENO);
-
-				exit(fw->tests[i]->func(argc,argv));
-
-			} else {	//Main 'parent'
-				signal(SIGALRM, alarm_handler);
-
-				struct timeval begin, end;
-				gettimeofday(&begin, NULL);
-
-				alarm(fw->timeout);
-				waitpid(child_pid, &status, WUNTRACED);
-				alarm(0);
-
-				gettimeofday(&end, NULL);
-				double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
-
-				print_log(fw, status, i, t);
-
-				if(status != 0){
-					nb_failed_tests += 1;
-				}
-
-				status = WEXITSTATUS(status);
-			}
-		}
-		close(fd);
-		dup2(saved, STDOUT_FILENO);
 	}
+
+	for(unsigned int i = 0; i < fw->nb_tests; i++) {
+
+		child_pid = fork();
+
+		if(child_pid == 0){	//Child
+			close(STDERR_FILENO);
+			close(STDOUT_FILENO);
+			close(fd);
+
+			exit(fw->tests[i]->func(argc,argv));
+
+		} else {	//Main 'parent'
+			signal(SIGALRM, alarm_handler);
+
+			struct timeval begin, end;
+			gettimeofday(&begin, NULL);
+
+			alarm(fw->timeout);
+			waitpid(child_pid, &status, WUNTRACED);
+			alarm(0);
+
+			gettimeofday(&end, NULL);
+			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
+
+			print_log(fw, status, i, t);
+
+			if(status != 0){
+				nb_failed_tests += 1;
+			}
+
+			status = WEXITSTATUS(status);
+		}
+	}
+	close(fd);
+	dup2(saved, STDOUT_FILENO);
+
 	return nb_failed_tests;
 }
