@@ -53,20 +53,21 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 
 	res->nb_tests = 0;
 
-//STRLEN ON NULL => segfault, so Im using null character to manage those case
-	res->program = (char *) malloc(sizeof(char) * (strlen(program) + 1));
+	res->program = NULL;
+	res->logfile = NULL;
+	res->cmd = NULL;
 
-	if(logfile != NULL){
-		res->logfile = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
-	}else{
-		//fprintf(stderr, "Logfile value is null\n");
+	int res_program = asprintf(&res->program, "%s",program);
+	int res_logfile = asprintf(&res->logfile, "%s",logfile);
+	int res_cmd = asprintf(&res->cmd, "%s",cmd);
+
+	if(res_program < 0){
+		res->program = "\0";
+	}
+	if(res_logfile < 0){
 		res->logfile = "\0";
 	}
-
-	if(cmd != NULL){
-		res->cmd = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
-	}else{
-		//fprintf(stderr, "cmd value is null\n");
+	if(res_cmd < 0){
 		res->cmd = "\0";
 	}
 
@@ -84,12 +85,6 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 		res->verbose = true;
 	}
 
-
-	if(strcmp(res->logfile, "\0") != 0)
-		strcpy(res->logfile, logfile);
-	if(strcmp(res->cmd, "\0") != 0)
-		strcpy(res->cmd, cmd);
-	strcpy(res->program, program);
 
 	return res;
 }
@@ -133,19 +128,20 @@ struct test_t *testfw_get(struct testfw_t *fw, int k) {
 
 struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name, testfw_func_t func)	{
 	struct test_t *res = (struct test_t *) malloc(sizeof(struct test_t));
-	char * suite1 = (char *) malloc(sizeof(suite));
-	char * name1 = (char *) malloc(sizeof(name));
+
+	char * suite1 = NULL;
+	char * name1 = NULL;
+
+	int res_suite = asprintf(&suite1, "%s",suite);
+	int res_name = asprintf(&name1, "%s",name);
+
+	if(res_suite < 0 || res_name < 0){
+		free(res);
+		return NULL;
+	}
 	testfw_func_t * fun = malloc(sizeof(func));
 
 	*fun = func;
-	if(suite != NULL)
-		strcpy(suite1,suite);
-	else
-		suite1 = "\0";
-	if(name != NULL)
-		strcpy(name1, name);
-	else
-		name1="\0";
 
 	res -> suite = suite1;
 	res -> name = name1;
@@ -165,24 +161,22 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 
 	fw->tests[fw->nb_tests] = res;
 	fw->nb_tests += 1;
+
 	return res;
 }
 
 
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
-	unsigned int name_length	= 0;
-	unsigned int suite_length = 0;
 
-	if(!suite || ! name || !fw)
+	if(!suite || !name || !fw)
 		return NULL;
 
-	suite_length = strlen(suite);
-	name_length = strlen(name);
 
-	char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
-	strcpy(test_name, suite);
-	strcat(test_name, "_");
-	strcat(test_name, name);
+	char *test_name = NULL;
+	int testName_res = asprintf(&test_name, "%s_%s",suite,name);
+
+	if(testName_res <0 || !test_name)
+		return NULL;
 
 	void * handle_sym = dlopen(fw->program, RTLD_NOW);
 	void * (*func) (int argc, char*argv);
@@ -195,26 +189,25 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 	return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
+
+
 int testfw_register_suite(struct testfw_t *fw, char *suite) {
-	if(!suite || !fw)
+	if(!suite || !fw || !fw->program)
 		return 0;
 
-//Utiliser asprintf
-	char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
-	assert(cmd);
+	char * cmd = NULL;
+	int cmd_res = asprintf(&cmd, "nm --defined-only %s | cut -d ' ' -f 3 | grep \"^%s_\"",fw->program, suite);
+	if(cmd_res < 0 || !cmd)
+		return NULL;
 
-	strcpy(cmd, "nm --defined-only ");
-	strcat(cmd, fw->program);
-	strcat(cmd, " | cut -d ' ' -f 3 | grep \"^");
-	strcat(cmd, suite);
-	strcat(cmd,"_\"");
-
-	FILE * f = popen(cmd,"r");
+	FILE * f = popen(cmd, "r");
 	assert(f);
 	char path[1024];
 
 	unsigned int sum					= 0;
-	unsigned int suite_length = strlen(suite);
+	unsigned int suite_length = 0;
+	if(suite)
+		suite_length = strlen(suite);
 	unsigned int path_length	= 0;
 
 	while(fgets(path, sizeof(path) -1, f) != NULL){	//print the output line per line
@@ -225,6 +218,7 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 		name_length = path_length - suite_length -1;
 		char * name = (char*) malloc(sizeof(char) * (name_length));		//memleak there
 		assert(name);
+		name[0] = "";
 
 		for(unsigned int i = suite_length+1, j=0; i < path_length-1; i++,j++){
 			name[j] = path[i];
