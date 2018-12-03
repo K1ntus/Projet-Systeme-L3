@@ -250,17 +250,23 @@ setjmp / longjmp
 alarm(124)
 */
 
+pid_t child_pid = -1;
 
 void alarm_handler(void) {
-	exit(124);
+	kill(child_pid, SIGTERM);
 }
 
 void print_log(struct testfw_t * fw, int status, int test_id,double exec_time){
 	if(WIFSIGNALED(status)){
+		if(exec_time >= fw->timeout)
+			printf("[TIMEOUT] ");
+		else
+			printf("[KILLED] ");
+
 		if(status == 14) { //Alarm clock value
-			printf("[TIMEOUT] run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
+			printf("run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
 		}else{
-			printf("[KILLED] run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
+			printf("run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
 		}
 
 	}	else {
@@ -278,7 +284,6 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
     return EXIT_FAILURE;
   }
 
-  unsigned nb_failed_tests = 0;
 
 	int saved = dup(1);	//Contains a copy to stdout
 	int stdout = 1;
@@ -290,39 +295,40 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 	//dup2(out_file, 1);
 	//close(stdout);
 
+
+		//dup2(fd, 1);
+	unsigned nb_failed_tests = 0;
+
 	for(unsigned int i = 0; i < fw->nb_tests; i++) {
 
-		pid_t pid = fork();
-		if(pid == 0){
-			struct sigaction act;
-			act.sa_handler = alarm_handler;
-			act.sa_flags = 0;
-			alarm(fw->timeout);
-			sigemptyset(&act.sa_mask);
-			sigaction(SIGALRM, NULL, NULL);
-			//dup2(fd, 1);
+		child_pid = fork();
 
+		if(child_pid == 0){	//Child
 			exit(fw->tests[i]->func(argc,argv));
-		} else {
+
+		} else {	//Main 'parent'
+			signal(SIGALRM,alarm_handler);
+
 			struct timeval begin, end;
 			gettimeofday(&begin, NULL);
 
-			waitpid(pid,&status,WUNTRACED);
+			alarm(fw->timeout);
+			waitpid(child_pid, &status, WUNTRACED);
+			alarm(0);
+
 			gettimeofday(&end, NULL);
 			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (double)(end.tv_sec - begin.tv_sec);
+
 			print_log(fw, status, i, t);
 
-			int status = WEXITSTATUS(status);
-
-
-			if(WEXITSTATUS(status) != 0){
+			if((status) != 0){
 				nb_failed_tests += 1;
-
 			}
 
-		}
+			status = WEXITSTATUS(status);
 
-		/*close(fd);*/
+
+		}
 	}
 	dup2(saved, 1);
 	return nb_failed_tests;
