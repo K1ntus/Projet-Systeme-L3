@@ -249,31 +249,24 @@ alarm(124)
 pid_t child_pid = -1;
 
 void alarm_handler(int sig) {
-	kill(child_pid, SIGTERM);
+	kill(child_pid, SIGUSR1);
 }
 
 void print_log(struct testfw_t * fw, int status, int test_id, double exec_time, int fd){
-	if(WIFSIGNALED(status)){
-		if(status == 14)
-			dprintf(fd, "[KILLED] ");
-		else if(exec_time >= fw->timeout)
-			dprintf(fd, "[TIMEOUT] ");
-		else
-			dprintf(fd, "[KILLED] ");
-
-		if(status == 14) { //Alarm clock value
-			dprintf(fd, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
-		}else{
-			dprintf(fd, "run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
+		switch(status){
+			case 0:		//Test success
+				dprintf(fd, "[SUCCESS] run test \"%s.%s\" in %f ms (status %d)->%d\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status), status);
+				return;
+			case 256:	//Test failure
+				dprintf(fd, "[FAILURE] run test \"%s.%s\" in %f ms (status %d)->%d\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status), status);
+				return;
+			case SIGUSR1:	//Timeout
+				dprintf(fd, "[TIMEOUT] run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
+				return;
+			default:	//Any wrong thing append
+				dprintf(fd, "[KILLED] run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
+				return;
 		}
-
-	}	else {
-		if(status == 0)
-			dprintf(fd, "[SUCCESS] ");
-		else
-			dprintf(fd, "[FAILURE] ");
-		dprintf(fd, "run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
-	}
 }
 
 int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode_t mode){
@@ -287,16 +280,17 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 	int stdout_saved = dup(STDOUT_FILENO);
 	int stderr_saved = dup(STDERR_FILENO);
 	int logfile_fileDescriptor;
-	bool cmd_mode = false;
-
+	bool cmd_mode = false, logfile_mode = false;
+	if(fw->logfile != NULL){
+		logfile_mode = true;
+	} else if (fw->cmd != NULL){
+		cmd_mode = true;
+	}
 
 	unsigned nb_failed_tests = 0;
 
-	if(fw->logfile){
+	if(logfile_mode){
 		logfile_fileDescriptor = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-	}
-	if(fw->cmd){
-		cmd_mode = true;
 	}
 
 
@@ -339,7 +333,7 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			}
 
 //Switch the stdIO to write in the logfile
-			if(fw->logfile && !cmd_mode){
+			if(logfile_mode){
 				print_log(fw, status, i, t, logfile_fileDescriptor);
 			}
 			if(cmd_mode){	//Else, the same in the cmd input
