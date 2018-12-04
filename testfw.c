@@ -293,6 +293,9 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 		logfile_fileDescriptor = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
 	}
 
+	int tube[2];
+	pipe(tube);
+	char buff[1];
 
 	for(unsigned int i = 0; i < fw->nb_tests; i++) {
 		child_pid = fork();
@@ -306,7 +309,12 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			close(stdout_saved);
 			close(stderr_saved);
 			close(logfile_fileDescriptor);
-
+		if(cmd_mode){
+			close(tube[0]);
+			dup2(tube[1],  STDOUT_FILENO);
+			dup2(tube[1],  STDERR_FILENO);
+			close(tube[1]);
+		}
 			exit(fw->tests[i]->func(argc,argv));
 
 		} else {	//Main 'parent'
@@ -342,6 +350,10 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 
 				int	cmd_fileDescriptor = fileno(cmd_file);
 				//Popen, pclose, ...
+				while(read(tube[0],buff, 1)){
+					fwrite(buff,1,1,cmd_file);
+				}
+
 				if(cmd_fileDescriptor < 0){
 					close(cmd_fileDescriptor);
 					continue;
