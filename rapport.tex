@@ -20,14 +20,14 @@ Nous allons voir dans ce rapport comment et quels choix nous avons fait pour cr�
 Le choix des champs d'une telle structure a été induite par les arguments de la fonction testfw\_init(), de plus, 
  nous avons ajouté d'autres champs facilitant par la suite l'implémentation des fonctions. La structure est composée des champs suivants:
  \begin{description}
- \item[] Une structure 2D de tests de type struct test\_t définie dans le fichier testfw.h. 
- \item[] Le nombre de tests contenus dans la structure précédente.
- \item[] Le nom du fichier de l'executable. 
- \item[] Le nom du fichier de logs dans lequel sera redirrigé tous les résultats de tests.
- \item[] Une commande  permettant de redirriger tous les résultats de tests.
- \item[] Un entier définissant le temps maximum d'un test avant d'être en "timeout".
- \item[] Une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal. 
- \item[] Une variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
+ \item[•] Une structure 2D de tests de type struct test\_t définie dans le fichier testfw.h. 
+ \item[•] Le nombre de tests contenus dans la structure précédente.
+ \item[•] Le nom du fichier de l'executable. 
+ \item[•] Le nom du fichier de logs dans lequel sera redirrigé tous les résultats de tests.
+ \item[•] Une commande  permettant de redirriger tous les résultats de tests.
+ \item[•] Un entier définissant le temps maximum d'un test avant d'être en "timeout".
+ \item[•] Une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal. 
+ \item[•] Une variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
 \end{description}
 \subsection{Fonction testfw\_init()}
 Cette fonction retourne un pointeur sur une nouvelle structure framework. Elle initialise un à un les champs de la structure. Nous avons veillé à bien allouer la mémoire nécessaire à l'affectation des variables. Nous avons donc utilisé la fonction malloc(). La première allocation est effectuée pour la variable de type struct testfw\_t, puis nous allouons la mémoire nécessaire pour le nombre de tests, le programme, le logfile, l'entier timeout, la commande, et les deux booléens silent et verbose. Pour chaque champs, la taille de l'allocation dépend de la taille de la variable passée en paramètre. Pour connaitre cette taille nous utilisons la fonction sizeof() renvoyant la valeur en octets. 
@@ -42,7 +42,11 @@ Comme nous avons précédemment alloué la mémoire sur la création d'une varia
 La fonction retourne le nombre de tests passés à une variable de type struct testfw\_t. Nous avons vu précedemment que nous avons choisi d'ajouter une variable de type entier à la structure afin de comptabiliser le nombre de tests à effectuer. Notre choix s'est porté sur cette implémentation car c'est selon nous la manière la plus rapide et efficace pour récupérer cette donnée.
 
 \subsection{Fonction testfw\_get()}
+La fonction get permet de récupérer un test enregistré dans une variable de type struct testfw\_t et retourne un pointeur sur celle-ci.  A partir d'un entier, on récupère le test souhaité. Il est important de vérifier que le numéro de test passé en paramètre ne dépasse pas le nombre de tests enregistrés, et n'est pas inférieur à 0. 
+
 \subsection{Fonction testfw\_register\_func()}
+Nous avons implémenté la fonction testfw\_register\_func qui permet d'enregistrer un test à partir d'une fonction de test.  Nous avons fait appel à la fonction malloc() pour allouer une nouvelle variable de type struct test\_t, et nous avons de même alloué dynamiquement les champs correspondant au nom de la suite, le nom du test ainsi que la fonction de test.  La fonction sizeof() nous permet d'allouer dynamiquement la bonne quantité de mémoire.  Pour enregistrer les nom de suite et de fonction nous avons créer deux pointeurs sur des buffers suite1 et name1 initialisés à NULL. 
+
 \subsection{Fonction testfw\_register\_symb()}
 \subsection{Fonction testfw\_register\_suite()}
  
