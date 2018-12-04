@@ -53,43 +53,43 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 
 	res->nb_tests = 0;
 
-//STRLEN ON NULL => segfault, so Im using null character to manage those case
-	res->program = (char *) malloc(sizeof(char) * (strlen(program) + 1));
+	res->program = NULL;
+	res->logfile = NULL;
+	res->cmd = NULL;
 
-	if(logfile != NULL){
-		res->logfile = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
-	}else{
-		//fprintf(stderr, "Logfile value is null\n");
-		res->logfile = "\0";
+	int res_program = asprintf(&res->program, "%s",program);
+	int res_logfile = asprintf(&res->logfile, "%s",logfile);
+	int res_cmd = asprintf(&res->cmd, "%s",cmd);
+
+	if(res_program <= 0){
+		res->program = NULL;
+	}
+	if(res_logfile <= 0){
+		res->logfile = NULL;
+	}
+	if(res_cmd <= 0){
+		res->cmd = NULL;
 	}
 
-	if(cmd != NULL){
-		res->cmd = (char *) malloc(sizeof(char) * (strlen(logfile) + 1));
-	}else{
-		//fprintf(stderr, "cmd value is null\n");
-		res->cmd = "\0";
-	}
-
-	if(timeout > 0)
+	if(timeout >= 0)
 		res->timeout = timeout;
 	else
-		res->timeout = 0;
+		res->timeout = 2;
+
+
+	if (verbose == true)
+		res->verbose = true;
+	else
+		res->verbose = false;
 
 
 	if (silent == true){
 		res->silent = true;
 		res->verbose = false;
-	}else{
+	} else {
 		res->silent = false;
-		res->verbose = true;
 	}
 
-
-	if(strcmp(res->logfile, "\0") != 0)
-		strcpy(res->logfile, logfile);
-	if(strcmp(res->cmd, "\0") != 0)
-		strcpy(res->cmd, cmd);
-	strcpy(res->program, program);
 
 	return res;
 }
@@ -106,12 +106,10 @@ void testfw_free(struct testfw_t *fw) {
 	if(fw->tests)
 		free(fw->tests);
 
-	if(strcmp(fw->cmd, "\0") != 0)
-		if(fw->cmd)
-			free(fw->cmd);
-	if(strcmp(fw->logfile, "\0") != 0)
-		if(fw->logfile)
-			free(fw->logfile);
+	if(fw->cmd)
+		free(fw->cmd);
+	if(fw->logfile)
+		free(fw->logfile);
 
 	free(fw->program);
 
@@ -133,19 +131,20 @@ struct test_t *testfw_get(struct testfw_t *fw, int k) {
 
 struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name, testfw_func_t func)	{
 	struct test_t *res = (struct test_t *) malloc(sizeof(struct test_t));
-	char * suite1 = (char *) malloc(sizeof(suite));
-	char * name1 = (char *) malloc(sizeof(name));
+
+	char * suite1 = NULL;
+	char * name1 = NULL;
+
+	int res_suite = asprintf(&suite1, "%s",suite);
+	int res_name = asprintf(&name1, "%s",name);
+
+	if(res_suite < 0 || res_name < 0){
+		free(res);
+		return NULL;
+	}
 	testfw_func_t * fun = malloc(sizeof(func));
 
 	*fun = func;
-	if(suite != NULL)
-		strcpy(suite1,suite);
-	else
-		suite1 = "\0";
-	if(name != NULL)
-		strcpy(name1, name);
-	else
-		name1="\0";
 
 	res -> suite = suite1;
 	res -> name = name1;
@@ -165,24 +164,22 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 
 	fw->tests[fw->nb_tests] = res;
 	fw->nb_tests += 1;
+
 	return res;
 }
 
 
 struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name) {
-	unsigned int name_length	= 0;
-	unsigned int suite_length = 0;
 
-	if(!suite || ! name || !fw)
+	if(!suite || !name || !fw)
 		return NULL;
 
-	suite_length = strlen(suite);
-	name_length = strlen(name);
 
-	char *test_name = malloc(sizeof(char) * (name_length + suite_length + 2));
-	strcpy(test_name, suite);
-	strcat(test_name, "_");
-	strcat(test_name, name);
+	char *test_name = NULL;
+	int testName_res = asprintf(&test_name, "%s_%s",suite,name);
+
+	if(testName_res <0 || !test_name)
+		return NULL;
 
 	void * handle_sym = dlopen(fw->program, RTLD_NOW);
 	void * (*func) (int argc, char*argv);
@@ -195,26 +192,25 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 	return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
+
+
 int testfw_register_suite(struct testfw_t *fw, char *suite) {
-	if(!suite || !fw)
+	if(!suite || !fw || !fw->program)
 		return 0;
 
-//Utiliser asprintf
-	char * cmd = malloc(sizeof(char) * (strlen(suite) + strlen(fw->program) + strlen("nm --defined-only ./ | cut -d ' ' -f 3 | grep \"\"")));
-	assert(cmd);
+	char * cmd = NULL;
+	int cmd_res = asprintf(&cmd, "nm --defined-only %s | cut -d ' ' -f 3 | grep \"^%s_\"",fw->program, suite);
+	if(cmd_res < 0 || !cmd)
+		return 0;
 
-	strcpy(cmd, "nm --defined-only ");
-	strcat(cmd, fw->program);
-	strcat(cmd, " | cut -d ' ' -f 3 | grep \"^");
-	strcat(cmd, suite);
-	strcat(cmd,"_\"");
-
-	FILE * f = popen(cmd,"r");
+	FILE * f = popen(cmd, "r");
 	assert(f);
 	char path[1024];
 
 	unsigned int sum					= 0;
-	unsigned int suite_length = strlen(suite);
+	unsigned int suite_length = 0;
+	if(suite)
+		suite_length = strlen(suite);
 	unsigned int path_length	= 0;
 
 	while(fgets(path, sizeof(path) -1, f) != NULL){	//print the output line per line
@@ -252,31 +248,31 @@ alarm(124)
 
 pid_t child_pid = -1;
 
-void alarm_handler(void) {
+void alarm_handler(int sig) {
 	kill(child_pid, SIGTERM);
 }
 
-void print_log(struct testfw_t * fw, int status, int test_id, double exec_time){
+void print_log(struct testfw_t * fw, int status, int test_id, double exec_time, int fd){
 	if(WIFSIGNALED(status)){
 		if(status == 14)
-			fprintf(stdout, "[KILLED] ");
+			dprintf(fd, "[KILLED] ");
 		else if(exec_time >= fw->timeout)
-			fprintf(stdout, "[TIMEOUT] ");
+			dprintf(fd, "[TIMEOUT] ");
 		else
-			fprintf(stdout, "[KILLED] ");
+			dprintf(fd, "[KILLED] ");
 
 		if(status == 14) { //Alarm clock value
-			fprintf(stdout, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name);
+			dprintf(fd, "run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
 		}else{
-			fprintf(stdout, "run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
+			dprintf(fd, "run test \"%s.%s\" in %f ms (signal \"%s\")\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, strsignal(status));
 		}
 
 	}	else {
 		if(status == 0)
-			fprintf(stdout, "[SUCCESS] ");
+			dprintf(fd, "[SUCCESS] ");
 		else
-			fprintf(stdout, "[FAILURE] ");
-		fprintf(stdout, "run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
+			dprintf(fd, "[FAILURE] ");
+		dprintf(fd, "run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
 	}
 }
 
@@ -286,99 +282,94 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
     return EXIT_FAILURE;
   }
 
-
-	int saved = dup(1);	//Contains a copy to stdout
 	int status = 0;
 
-	//dup2(out_file, 1);
-	//close(stdout);
+	int stdout_saved = dup(STDOUT_FILENO);
+	int stderr_saved = dup(STDERR_FILENO);
+	int logfile_fileDescriptor;
+	bool cmd_mode = false;
+
 
 	unsigned nb_failed_tests = 0;
-	printf("bool silent : %d\n", fw->silent);
 
-	if(fw->silent == false){
-		for(unsigned int i = 0; i < fw->nb_tests; i++) {
-
-			child_pid = fork();
-
-			if(child_pid == 0){	//Child
-				close(STDERR_FILENO);
-				close(STDOUT_FILENO);
-
-				exit(fw->tests[i]->func(argc,argv));
-
-			} else {	//Main 'parent'
-				signal(SIGALRM, alarm_handler);
-
-				struct timeval begin, end;
-				gettimeofday(&begin, NULL);
-
-				alarm(fw->timeout);
-				waitpid(child_pid, &status, WUNTRACED);
-				alarm(0);
-
-				gettimeofday(&end, NULL);
-				double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
-				print_log(fw, status, i, t);
-
-				/*
-				if(fw->logfile){	//A log file has been pointed out
-					int logFile = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-					dup2(logFile, STDOUT_FILENO);
-					print_log(fw, status, i, t);
-				}
-				*/
-
-
-				if(status != 0){
-					nb_failed_tests += 1;
-				}
-
-				status = WEXITSTATUS(status);
-			}
-		}
-		dup2(saved, 1);
-	}else{
-		int fd = open("logfile.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
-		if(!fd){
-			exit(EXIT_FAILURE);
-		}
-		dup2(fd, STDOUT_FILENO);
-		close(STDOUT_FILENO);
-		for(unsigned int i = 0; i < fw->nb_tests; i++) {
-
-			child_pid = fork();
-
-			if(child_pid == 0){	//Child
-				close(STDERR_FILENO);
-				close(STDOUT_FILENO);
-
-				exit(fw->tests[i]->func(argc,argv));
-
-			} else {	//Main 'parent'
-				signal(SIGALRM, alarm_handler);
-
-				struct timeval begin, end;
-				gettimeofday(&begin, NULL);
-
-				alarm(fw->timeout);
-				waitpid(child_pid, &status, WUNTRACED);
-				alarm(0);
-
-				gettimeofday(&end, NULL);
-				double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
-
-				print_log(fw, status, i, t);
-
-				if(status != 0){
-					nb_failed_tests += 1;
-				}
-
-				status = WEXITSTATUS(status);
-			}
-		}
-		close(fd);
-		dup2(saved, STDOUT_FILENO);
+	if(fw->logfile){
+		logfile_fileDescriptor = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
 	}
+	if(fw->cmd){
+		cmd_mode = true;
+	}
+
+
+	for(unsigned int i = 0; i < fw->nb_tests; i++) {
+		child_pid = fork();
+
+		if(child_pid == 0){	//Child
+			if(fw->silent || !fw->verbose){
+				close(STDERR_FILENO);
+				close(STDOUT_FILENO);
+			}
+
+			close(stdout_saved);
+			close(stderr_saved);
+			close(logfile_fileDescriptor);
+
+			exit(fw->tests[i]->func(argc,argv));
+
+		} else {	//Main 'parent'
+			signal(SIGALRM, alarm_handler);
+
+			struct timeval begin, end;
+			gettimeofday(&begin, NULL);
+
+			alarm(fw->timeout);
+			waitpid(child_pid, &status, WUNTRACED);
+			alarm(0);
+
+			gettimeofday(&end, NULL);
+			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
+
+/**	Printing side **/
+//Reset the file stdI/O descriptor
+//Print the log in the console if the mode is NOT "silent"
+			if(!fw->silent){
+				dup2(stdout_saved, STDOUT_FILENO);
+				dup2(stderr_saved, STDERR_FILENO);
+
+				print_log(fw, status, i, t, stdout_saved);
+			}
+
+//Switch the stdIO to write in the logfile
+			if(fw->logfile && !cmd_mode){
+				print_log(fw, status, i, t, logfile_fileDescriptor);
+			}
+			if(cmd_mode){	//Else, the same in the cmd input
+				FILE * cmd_file = popen(fw->cmd, "w");
+				assert(cmd_file);
+
+				int	cmd_fileDescriptor = fileno(cmd_file);
+				//Popen, pclose, ...
+				if(cmd_fileDescriptor < 0){
+					close(cmd_fileDescriptor);
+					continue;
+				}
+				print_log(fw, status, i, t,	cmd_fileDescriptor);
+
+				close(cmd_fileDescriptor);
+				pclose(cmd_file);
+			}
+
+
+			if(status != 0){	// If status success
+				nb_failed_tests += 1;
+			}
+
+			status = WEXITSTATUS(status);	//Deprecated
+		}
+	}
+
+	//Close every opened file descriptor
+	close(stdout_saved);
+	close(stderr_saved);
+
 	return nb_failed_tests;
 }
