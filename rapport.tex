@@ -22,14 +22,14 @@ Nous allons voir dans ce rapport comment et quels choix nous avons fait pour cr�
 Le choix des champs d'une telle structure a été induite par les arguments de la fonction testfw\_init(), de plus, 
  nous avons ajouté d'autres champs facilitant par la suite l'implémentation des fonctions. La structure est composée des champs suivants:
  \begin{description}
- \item[•] Une structure 2D de tests de type struct test\_t définie dans le fichier testfw.h. 
- \item[•] Le nombre de tests contenus dans la structure précédente.
- \item[•] Le nom du fichier de l'executable. 
- \item[•] Le nom du fichier de logs dans lequel sera redirrigé tous les résultats de tests.
- \item[•] Une commande  permettant de rediriger tous les résultats de tests.
- \item[•] Un entier définissant le temps maximum d'un test avant d'être en "timeout".
- \item[•] Une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal. 
- \item[•] Une variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
+ \item[] Une structure 2D de tests de type struct test\_t définie dans le fichier testfw.h. 
+ \item[] Le nombre de tests contenus dans la structure précédente.
+ \item[] Le nom du fichier de l'executable. 
+ \item[] Le nom du fichier de logs dans lequel sera redirrigé tous les résultats de tests.
+ \item[] Une commande  permettant de rediriger tous les résultats de tests.
+ \item[] Un entier définissant le temps maximum d'un test avant d'être en "timeout".
+ \item[] Une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal. 
+ \item[] Une variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
 \end{description}
 \subsection{Fonction testfw\_init()}
 Cette fonction retourne un pointeur sur une nouvelle structure framework. Elle initialise un à un les champs de la structure. Nous avons veillé à bien allouer la mémoire nécessaire à l'affectation des variables. Nous avons donc utilisé la fonction malloc(). La première allocation est effectuée pour la variable de type struct testfw\_t, puis nous allouons la mémoire nécessaire pour le nombre de tests, le programme, le logfile, l'entier timeout, la commande, et les deux booléens silent et verbose. Pour chaque champs, la taille de l'allocation dépend de la taille de la variable passée en paramètre. Pour connaitre cette taille nous utilisons la fonction sizeof() renvoyant la valeur en octets. 
@@ -68,7 +68,8 @@ Nous devons donc vérifier qu'à ce stade aucune erreur n'a été créée par l'
 
 \subsection{Fonction testfw\_register\_suite()}
  La derniere fonction de cette partie A est la fonciton testfw\_register\_suite().  Elle prend en paramètre 
- une variable de type struct testfw\_t et le nom d'une suite.  Elle effectue l'enregistrement d'une suite de tests à partir d'un nom de suite. 
+ une variable de type struct testfw\_t et le nom d'une suite.  Elle effectue l'enregistrement d'une suite de tests à partir d'un nom de suite. Pour pouvoir enregistrer une suite de test avec un nom, le plus simple est d'utiliser la commande externe shell "nm --defined-only <program> | cut -d ' ' -f 3 | grep "^<suite>". Pöur récupérer cette commande et la sauvegarder dans une chaine de charactère, on utilise à nouveau la fonction asprintf(), en utilisant comme buffer la variable cmd.  On vérifie toujours que asprintf() renvoie un entier supérieur à 0. Par la suite on ouvre un File * avec la fonction popen(). Ceci permet de créer un fichier à partir de la commande passée en paramètre, et cela en mode "read only". Pour s'assurer que le fichier a bien été créé, on utilise assert().
+ 
 \section{Partie B}
 \subsection{Fonction testfw\_run\_all()}
   
