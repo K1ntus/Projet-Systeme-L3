@@ -255,10 +255,10 @@ void alarm_handler(int sig) {
 void print_log(struct testfw_t * fw, int status, int test_id, double exec_time, int fd){
 		switch(status){
 			case 0:		//Test success
-				dprintf(fd, "[SUCCESS] run test \"%s.%s\" in %f ms (status %d)->%d\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status), status);
+				dprintf(fd, "[SUCCESS] run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
 				return;
 			case 256:	//Test failure
-				dprintf(fd, "[FAILURE] run test \"%s.%s\" in %f ms (status %d)->%d\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status), status);
+				dprintf(fd, "[FAILURE] run test \"%s.%s\" in %f ms (status %d)\n",fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time, WEXITSTATUS(status));
 				return;
 			case SIGUSR1:	//Timeout
 				dprintf(fd, "[TIMEOUT] run test \"%s.%s\" in %f ms (status 124)\n", fw->tests[test_id]->suite, fw->tests[test_id]->name, exec_time);
