@@ -57,18 +57,14 @@ struct testfw_t *testfw_init(char *program, int timeout, char *logfile, char *cm
 	res->logfile = NULL;
 	res->cmd = NULL;
 
-	int res_program = asprintf(&res->program, "%s",program);
-	int res_logfile = asprintf(&res->logfile, "%s",logfile);
-	int res_cmd = asprintf(&res->cmd, "%s",cmd);
-
-	if(res_program <= 0){
-		res->program = NULL;
+	if(cmd != NULL){
+		asprintf(&res->cmd, "%s", cmd);
 	}
-	if(res_logfile <= 0){
-		res->logfile = NULL;
+	if(program != NULL){
+		asprintf(&res->program, "%s", program);
 	}
-	if(res_cmd <= 0){
-		res->cmd = NULL;
+	if(logfile != NULL){
+		asprintf(&res->logfile, "%s", logfile);
 	}
 
 	if(timeout >= 0)
@@ -281,21 +277,17 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 	int stderr_saved = dup(STDERR_FILENO);
 	int logfile_fileDescriptor;
 	bool cmd_mode = false, logfile_mode = false;
+
 	if(fw->logfile != NULL){
 		logfile_mode = true;
-	} else if (fw->cmd != NULL){
+		logfile_fileDescriptor = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+	}
+
+	if (fw->cmd != NULL){
 		cmd_mode = true;
 	}
 
 	unsigned nb_failed_tests = 0;
-
-	if(logfile_mode){
-		logfile_fileDescriptor = open(fw->logfile, O_CREAT | O_TRUNC | O_WRONLY, 0644);
-	}
-
-	int tube[2];
-	pipe(tube);
-	char buff[1];
 
 	for(unsigned int i = 0; i < fw->nb_tests; i++) {
 		child_pid = fork();
@@ -304,17 +296,12 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			if(fw->silent || !fw->verbose){
 				close(STDERR_FILENO);
 				close(STDOUT_FILENO);
+				close(logfile_fileDescriptor);
 			}
 
 			close(stdout_saved);
 			close(stderr_saved);
-			close(logfile_fileDescriptor);
-		if(cmd_mode){
-			close(tube[0]);
-			dup2(tube[1],  STDOUT_FILENO);
-			dup2(tube[1],  STDERR_FILENO);
-			close(tube[1]);
-		}
+
 			exit(fw->tests[i]->func(argc,argv));
 
 		} else {	//Main 'parent'
@@ -331,39 +318,32 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			double t = (double)(end.tv_usec - begin.tv_usec) / 1000 + (end.tv_sec - begin.tv_sec)*1000;
 
 /**	Printing side **/
-//Reset the file stdI/O descriptor
-//Print the log in the console if the mode is NOT "silent"
-			if(!fw->silent){
-				dup2(stdout_saved, STDOUT_FILENO);
-				dup2(stderr_saved, STDERR_FILENO);
-
-				print_log(fw, status, i, t, stdout_saved);
-			}
-
 //Switch the stdIO to write in the logfile
 			if(logfile_mode){
 				print_log(fw, status, i, t, logfile_fileDescriptor);
 			}
+
 			if(cmd_mode){	//Else, the same in the cmd input
 				FILE * cmd_file = popen(fw->cmd, "w");
 				assert(cmd_file);
 
 				int	cmd_fileDescriptor = fileno(cmd_file);
-				//Popen, pclose, ...
-				while(read(tube[0],buff, 1)){
-					fwrite(buff,1,1,cmd_file);
-				}
-
-				if(cmd_fileDescriptor < 0){
-					close(cmd_fileDescriptor);
-					continue;
-				}
+				dup2(cmd_fileDescriptor, STDOUT_FILENO);
+				dup2(cmd_fileDescriptor, STDERR_FILENO);
 				print_log(fw, status, i, t,	cmd_fileDescriptor);
+				dup2(stdout_saved, STDOUT_FILENO);
+				dup2(stderr_saved, STDERR_FILENO);
 
-				close(cmd_fileDescriptor);
+				//close(cmd_fileDescriptor);
 				pclose(cmd_file);
 			}
 
+			//Reset the file stdI/O descriptor
+			//Print the log in the console if the mode is NOT "silent"
+			if(!fw->silent && !cmd_mode){
+				printf("should not be printed\n");
+				print_log(fw, status, i, t, stdout_saved);
+			}
 
 			if(status != 0){	// If status success
 				nb_failed_tests += 1;
