@@ -188,7 +188,7 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 	dlerror();	//clear error code
 	func =	dlsym(handle_sym, test_name);	//Return null if no
 
-	free(test_name);
+	//free(test_name);
 	return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
 
