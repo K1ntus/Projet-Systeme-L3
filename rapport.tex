@@ -10,8 +10,10 @@
 \maketitle
 
 \section{Introduction}
-Dans le cadre du projet de programmation système, nous avons du réaliser deux parties, A et B, dans le but de développer un framework de tests. Pour réaliser ce travail, nous avons utilisé l'outil de collaboration GitHub. Nous avons également travaillé avec l'outil Valgrind afin d'analyser toutes les allocations, libérations et accès à la mémoire. Nous avons également testé les fuites pour éviter que notre programme ne soit pas "gourmand".
-La première partie du projet sert principalement à créer une nouvelle structure, ainsi que des fonctions pour initaliser et libérer celle-ci. Nous enregistrons égalements des tests. La seconde partie permet de lancer l'exécution de tous les tests enregistrés, elle implémente également l'affichage si nécessaire du résultat des tests sur sa sortie standard.
+Dans le cadre de l'UE programmation système, nous avons dû réaliser un projet se divisant en deux parties, A et B, dans le but de développer un framework de tests. Pour réaliser ce travail, nous avons utilisé l'outil de collaboration GitHub. Nous avons également travaillé avec l'outil Valgrind afin d'analyser toutes les allocations, libérations et accès à la mémoire. Nous avons également testé les fuites pour éviter que notre programme ne soit pas "gourmand".
+
+
+	La première partie du projet sert principalement à créer une nouvelle structure, ainsi que des fonctions pour initaliser et libérer celle-ci. Nous enregistrons égalements des tests. La seconde partie permet de lancer l'exécution de tous les tests enregistrés, elle implémente également l'affichage si nécessaire du résultat des tests sur sa sortie standard.  Il est évident que pour chaque fonction implémentée, nous avons testé la validité des arguments avec la fonction assert() ou nous avons du réaliser des tests spécifiques en fonction des arguments.
 Nous allons voir dans ce rapport comment et quels choix nous avons fait pour créer ce framework.
     
    
@@ -24,7 +26,7 @@ Le choix des champs d'une telle structure a été induite par les arguments de l
  \item[•] Le nombre de tests contenus dans la structure précédente.
  \item[•] Le nom du fichier de l'executable. 
  \item[•] Le nom du fichier de logs dans lequel sera redirrigé tous les résultats de tests.
- \item[•] Une commande  permettant de redirriger tous les résultats de tests.
+ \item[•] Une commande  permettant de rediriger tous les résultats de tests.
  \item[•] Un entier définissant le temps maximum d'un test avant d'être en "timeout".
  \item[•] Une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal. 
  \item[•] Une variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
@@ -45,11 +47,28 @@ La fonction retourne le nombre de tests passés à une variable de type struct t
 La fonction get permet de récupérer un test enregistré dans une variable de type struct testfw\_t et retourne un pointeur sur celle-ci.  A partir d'un entier, on récupère le test souhaité. Il est important de vérifier que le numéro de test passé en paramètre ne dépasse pas le nombre de tests enregistrés, et n'est pas inférieur à 0. 
 
 \subsection{Fonction testfw\_register\_func()}
-Nous avons implémenté la fonction testfw\_register\_func qui permet d'enregistrer un test à partir d'une fonction de test.  Nous avons fait appel à la fonction malloc() pour allouer une nouvelle variable de type struct test\_t, et nous avons de même alloué dynamiquement les champs correspondant au nom de la suite, le nom du test ainsi que la fonction de test.  La fonction sizeof() nous permet d'allouer dynamiquement la bonne quantité de mémoire.  Pour enregistrer les nom de suite et de fonction nous avons créer deux pointeurs sur des buffers suite1 et name1 initialisés à NULL. 
+Nous avons implémenté la fonction testfw\_register\_func qui permet d'enregistrer un test à partir d'une fonction de test.  
+
+Nous avons fait appel à la fonction malloc() pour allouer une nouvelle variable de type struct test\_t, et nous avons de même alloué dynamiquement les champs correspondant au nom de la suite, le nom du test ainsi que la fonction de test.  La fonction sizeof() nous permet d'allouer dynamiquement la bonne quantité de mémoire.  
+
+Pour enregistrer les nom de suite et de fonction nous avons créer deux pointeurs sur des buffers suite1 et name1 initialisés à NULL, puis nous utilisons la fonction asprintf(), qui alloue la taille de mémoire correspondante à la taille de la chaine de caractères. asprintf() renvoie le nombre de caractères qui ont bien été assignés au buffer. Cette fonction permet de réduire le nombre de lignes de code, puisqu'elle réalise plusieurs actions. On vérifie également que le retour de la fonction asprintf() soit supérieur à 0. Dans le cas contraire, cela indique que la fonction à échoué à l'allocation. 
+
+On peut alors utiliser les buffers suite1 et name1 pour initialiser les champs suite et name de la structure. On retourne finalement un pointeur sur la variable de type test\_t.
 
 \subsection{Fonction testfw\_register\_symb()}
+La fonction testfw\_register\_symb() permet d'enregistrer une nouvelle fonction de test  à partir d'un nom de test et le nom d'une suite, elle retourne un pointeur  sur la structure permettant d'enregistrer le test. 
+
+De la même manière que la fonction testfw\_register\_func(), nous initalisons une variable test\_name qui va contenir le résultat de l'appel de asprintf(). Nous utilisons cette fonction pour récuperer la concaténation des variables suite et name dans un buffer test\_name. Cela permet d'optimiser le code en n'utilisant pas les fonction de concaténation strcpy() et strcat().  Il est donc important de tester si l'entier retourné par la fonction asprintf() est supérieur à 0. 
+
+Comme demandé dans le fichier projet.md nous avons utilisé la fonction dlopen() et récupéré son retour dans une variable handle\_sym de type void *, cela permet de charger l'exécutable correspondant au nom du programme, pour par la suite le parcourir. 
+
+Nous devons donc vérifier qu'à ce stade aucune erreur n'a été créée par l'appel de la fonction dlopen(), c'est pour cela que nous utilisons la fonction dlerror() qui renvoie une chaîne de caractères intelligible, décrivant la dernière erreur survenue dans dlopen().  Pour récupérer la fonction contenue dans l'executable  handle\_sym on utilise la fonction dlsym(). On verifie que celle ci ne retourne pas NULL,  symbolisant un échec, on stocke le retour de dlsym() dans "func" qui est elle même une fonction de type void *.  A nouveau, nous utilisons la fonction dlerror() pour vérifier le retour de dlsym().
+
+
+
 \subsection{Fonction testfw\_register\_suite()}
- 
+ La derniere fonction de cette partie A est la fonciton testfw\_register\_suite().  Elle prend en paramètre 
+ une variable de type struct testfw\_t et le nom d'une suite.  Elle effectue l'enregistrement d'une suite de tests à partir d'un nom de suite. 
 \section{Partie B}
 \subsection{Fonction testfw\_run\_all()}
   
