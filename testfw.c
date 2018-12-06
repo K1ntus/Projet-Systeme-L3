@@ -128,23 +128,35 @@ struct test_t *testfw_get(struct testfw_t *fw, int k) {
 struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name, testfw_func_t func)	{
 	struct test_t *res = (struct test_t *) malloc(sizeof(struct test_t));
 
-	char * suite1 = NULL;
-	char * name1 = NULL;
+	//char * suite1 = NULL;
+	//char * name1 = NULL;
 
-	int res_suite = asprintf(&suite1, "%s",suite);
-	int res_name = asprintf(&name1, "%s",name);
-
+	//int res_suite = asprintf(&suite1, "%s",suite);
+	//int res_name = asprintf(&name1, "%s",name);
+	char * name1 = malloc(sizeof(char)*strlen(name));
+	char * suite1 = malloc(sizeof(char)*strlen(suite));
+	//char name1[strlen(name)];
+	//char suite1[strlen(suite)];
+	for(int i = 0; i < strlen(name)+1 ; i++){
+		name1[i]=name[i];
+	}
+	for(int i = 0; i < strlen(suite)+1 ; i++){
+		suite1[i]=suite[i];
+	}
+/*
 	if(res_suite < 0 || res_name < 0){
 		free(res);
 		return NULL;
 	}
-	testfw_func_t * fun = malloc(sizeof(func));
+	*/
+	//testfw_func_t * fun = malloc(sizeof(func));
 
-	*fun = func;
+	//*fun = func;
 
 	res -> suite = suite1;
 	res -> name = name1;
-	res -> func = *fun;
+	printf("name : %s\n",res->name);
+	res -> func = func;
 
 	struct test_t **tmp = (struct test_t**)realloc(fw->tests, (fw->nb_tests+1)*sizeof(struct test_t*));
 	if (tmp != NULL) {
@@ -152,7 +164,7 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 	} else {
 		free(res);
 		free(tmp);
-		free(fun);
+		//free(fun);
 		free(suite1);
 		free(name1);
 		return NULL;
@@ -309,7 +321,15 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			exit(fw->tests[i]->func(argc,argv));
 
 		} else {	//Main 'parent'
+
+			/*struct sigaction s;
+			s.sa_sigaction = alarm_handler;
+			s.sa_flags =  0;
+
+			sigemptyset(&(s.sa_mask));
+			sigaction(SIGALRM, &s, NULL); */
 			signal(SIGALRM, alarm_handler);
+
 
 			struct timeval begin, end;
 			gettimeofday(&begin, NULL);
