@@ -275,6 +275,9 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 
 	int stdout_saved = dup(STDOUT_FILENO);
 	int stderr_saved = dup(STDERR_FILENO);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
+
 	int logfile_fileDescriptor;
 	bool cmd_mode = false, logfile_mode = false;
 
@@ -293,14 +296,11 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 		child_pid = fork();
 
 		if(child_pid == 0){	//Child
-			if(fw->silent || !fw->verbose){
-				close(STDERR_FILENO);
-				close(STDOUT_FILENO);
+			if(!fw->verbose || fw->silent){
+				close(stdout_saved);
+				close(stderr_saved);
 				close(logfile_fileDescriptor);
 			}
-
-			close(stdout_saved);
-			close(stderr_saved);
 
 			exit(fw->tests[i]->func(argc,argv));
 
@@ -321,41 +321,45 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 //Switch the stdIO to write in the logfile
 			if(logfile_mode){
 				print_log(fw, status, i, t, logfile_fileDescriptor);
-			}
-
-			if(cmd_mode){	//Else, the same in the cmd input
+			} else if(cmd_mode){	//Else, the same in the cmd input
 				FILE * cmd_file = popen(fw->cmd, "w");
 				assert(cmd_file);
 
 				int	cmd_fileDescriptor = fileno(cmd_file);
-				dup2(cmd_fileDescriptor, STDOUT_FILENO);
-				dup2(cmd_fileDescriptor, STDERR_FILENO);
-				print_log(fw, status, i, t,	cmd_fileDescriptor);
-				dup2(stdout_saved, STDOUT_FILENO);
-				dup2(stderr_saved, STDERR_FILENO);
+				print_log(fw, status, i, t,	cmd_fileDescriptor);	//Print every tests that has been found by the cmd
 
-				//close(cmd_fileDescriptor);
-				pclose(cmd_file);
+				status = WEXITSTATUS(pclose(cmd_file));
+				switch(status){
+					case 2:
+						print_log(fw, 0, i, t,	stdout_saved);	//Tests string passed the cmd
+						break;
+					default:
+						print_log(fw, 256, i, t,	stdout_saved);	//Tests string failed to passed the cmd
+						nb_failed_tests += 1;
+						break;
+				}
 			}
 
 			//Reset the file stdI/O descriptor
 			//Print the log in the console if the mode is NOT "silent"
 			if(!fw->silent && !cmd_mode){
-				printf("should not be printed\n");
 				print_log(fw, status, i, t, stdout_saved);
 			}
 
-			if(status != 0){	// If status success
+			if(status != 0 && !cmd_mode){	// If status success
 				nb_failed_tests += 1;
 			}
 
-			status = WEXITSTATUS(status);	//Deprecated
 		}
 	}
 
 	//Close every opened file descriptor
+	dup2(stdout_saved, STDOUT_FILENO);
+	dup2(stderr_saved, STDERR_FILENO);
+
 	close(stdout_saved);
 	close(stderr_saved);
+
 
 	return nb_failed_tests;
 }
