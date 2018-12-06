@@ -299,7 +299,11 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 			if(!fw->verbose || fw->silent){
 				close(stdout_saved);
 				close(stderr_saved);
-				close(logfile_fileDescriptor);
+				if(!logfile_mode)
+					close(logfile_fileDescriptor);
+			}else if(fw->verbose && logfile_mode){
+				dup2(logfile_fileDescriptor, STDOUT_FILENO);
+				dup2(logfile_fileDescriptor, STDERR_FILENO);
 			}
 
 			exit(fw->tests[i]->func(argc,argv));
