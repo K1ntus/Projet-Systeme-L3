@@ -339,6 +339,8 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 	int stderr_saved = dup(STDERR_FILENO);
 	close(STDOUT_FILENO);
 	close(STDERR_FILENO);
+	int tube[2];                         
+	pipe(tube);
 
 	int logfile_fileDescriptor;
 	bool cmd_mode = false, logfile_mode = false;
@@ -383,9 +385,15 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 				close(stderr_saved);
 				close(logfile_fileDescriptor);
 			}
-
-
+			
+			if(cmd_mode){
+				close(tube[0]);
+				dup2(tube[1], STDOUT_FILENO);
+				dup2(tube[1], STDERR_FILENO);
+				close(tube[1]);
+			}
 			exit(fw->tests[i]->func(argc,argv));
+	
 
 		} else {	//Main 'parent'
 
