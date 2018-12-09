@@ -194,10 +194,10 @@ struct test_t *testfw_register_func(struct testfw_t *fw, char *suite, char *name
 		free(name1);
 		return NULL;
 	}
-		
+
 	fw->tests[fw->nb_tests] = res;
 	fw->nb_tests += 1;
-	
+
 	free(fun);
 	return res;
 }
@@ -226,8 +226,8 @@ struct test_t *testfw_register_symb(struct testfw_t *fw, char *suite, char *name
 
 	dlerror();	//clear error code
 	func =	dlsym(handle_sym, test_name);	//Return null if no matches
-	
-	
+
+
 	free(test_name);
 	return testfw_register_func(fw, suite, name, (testfw_func_t) func);
 }
@@ -258,27 +258,33 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 	if(suite)
 		suite_length = strlen(suite);
 	unsigned int path_length	= 0;
-	
+
 	char * name = NULL;
-	
+
 	while(fgets(path, sizeof(path) -1, f) != NULL){		//get the output line per line in path variable
 		unsigned int name_length	= 0;
-		if(path != NULL)
+		if(path != NULL){
 			path_length = strlen(path);
+		}
 
-		name_length = (path_length - suite_length);
-		
-		name = (char*) malloc(sizeof(char) * (name_length));
-		assert(name);
-		
+
+		name_length = (path_length - suite_length) -2;	//Minus the '_' and the '\n'
+		char buffer[name_length];
+
+		name = NULL;
 
 		for(unsigned int i = suite_length+1, j=0; i < path_length-1; i++,j++){	//path_length -1 to remove the  \n ... Suitelength+1 to remove the '_'
-			name[j] = path[i];
+			buffer[j] = path[i];
 		}
+		buffer[name_length] = '\0';
+
+		asprintf(&name, "%s", buffer);
 
 		if(testfw_register_symb(fw, suite, name)){
 			sum +=1;
 		}
+
+
 		free(name);
 	}
 	pclose(f);
