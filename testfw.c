@@ -340,7 +340,7 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 	close(STDERR_FILENO);
 	int tube[2];                         
 	pipe(tube);
-
+	char buff[1];
 	int logfile_fileDescriptor;
 	bool cmd_mode = false, logfile_mode = false;
 
@@ -418,7 +418,9 @@ int testfw_run_all(struct testfw_t *fw, int argc, char *argv[], enum testfw_mode
 
 				int	cmd_fileDescriptor = fileno(cmd_file);
 				print_log(fw, status, i, t,	cmd_fileDescriptor);	//Print every tests that has been found by the cmd
-
+				while (read(tube[0], buff, 1)){   
+					  fwrite(buff, 1, 1, cmd_fileDescriptor);       //write in the file
+				}
 				status = WEXITSTATUS(pclose(cmd_file));
 
 				switch(status){
