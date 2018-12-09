@@ -1,0 +1,18 @@
+=======================================================================================
+|FONCTIONNALITÉS                                           | DIFFICULTÉ | SCORE (/10) |
+|======================================================================================
+|Partie A                                                  |            |             |
+|  - struct testfw_t                                       | +          |      9      |
+|  - testfw_init / tesfw_free / testfw_get / testfw_length | +          |      10     |
+|  - testfw_register_func                                  | +          |      9      |
+|  - testfw_register_symb                                  | ++         |      10     |
+|  - testfw_register_suite                                 | ++         |      9      |
+|Partie B                                                  |            |             |
+|  - testfw_run_all en mode FORKS (sans les options)       | ++         |      8      |
+|  - option timeout                                        | ++         |      10     |
+|  - option redirection vers logfile                       | ++         |      9      |
+|  - option redirection vers commande externe              | +++        |      7      |
+|Bonus                                                     |            |             |
+|  - testfw_run_all en mode FORKP (avec les options)       | +++        |      0      |
+|  - testfw_run_all en mode NOFORK (avec les options)      | +++        |      0      |
+=======================================================================================
