@@ -1,77 +1,204 @@
-\documentclass{article}
+\documentclass[12pt]{article}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{ragged2e}
+\geometry{hmargin=3cm,vmargin=2cm}
 
-\title{Rapport projet système}
-\author{Jordane Masson \\ Nathan Bonnaud \\ Sarah Portejoie}
-\date{Décembre 2018}
+\title{Projet Système}
+\author{Jordane Masson - Nathan Bonnaud - Sarah Portejoie}
+\date{Semestre 5}
 
 \begin{document}
 
 \maketitle
 
+\newpage
 \section{Introduction}
-Dans le cadre de l'UE programmation système, nous avons dû réaliser un projet se divisant en deux parties, A et B, dans le but de développer un framework de tests. Pour réaliser ce travail, nous avons utilisé l'outil de collaboration GitHub. Nous avons également travaillé avec l'outil Valgrind afin d'analyser toutes les allocations, libérations et accès à la mémoire. Nous avons également testé les fuites pour éviter que notre programme ne soit pas "gourmand".
+
+\paragraph{}
+Dans le cadre de l'UE programmation système, nous avons dû réaliser un projet se divisant en deux parties. \\
+
+La première partie (partie A ndlr.), nous devions réaliser les fonctions basiques permettant la création d'une structure de données de tests, ainsi que les fonctions permettant d'ajouter des tests à cette dernière.\\
+
+La seconde partie (partie B ndlr.) consiste en la réalisation d'une fonction exécutant chaques tests séquentiellement, et d'afficher le résultat du test sur la sortie standard, dans un fichier logfile ou vers une commande en fonction des paramètres d'exécution du programme.\\
+
+Pour réaliser ce travail, nous avons utilisé l'outil collaboratif et de versionning GitHub. Il nous a également été nécessaire d'utiliser des outils tel que valgrind ou gdb pour repérer d'éventuelles fuites mémoires.\\
 
 
-	La première partie du projet sert principalement à créer une nouvelle structure, ainsi que des fonctions pour initaliser et libérer celle-ci. Nous enregistrons égalements des tests. La seconde partie permet de lancer l'exécution de tous les tests enregistrés, elle implémente également l'affichage si nécessaire du résultat des tests sur sa sortie standard.  Il est évident que pour chaque fonction implémentée, nous avons testé la validité des arguments avec la fonction assert() ou nous avons du réaliser des tests spécifiques en fonction des arguments.
-Nous allons voir dans ce rapport comment et quels choix nous avons fait pour créer ce framework.
-    
-   
-\section{Partie A}   
-\subsection{Structure testfw\_t}
-Le choix des champs d'une telle structure a été induite par les arguments de la fonction testfw\_init(), de plus, 
- nous avons ajouté d'autres champs facilitant par la suite l'implémentation des fonctions. La structure est composée des champs suivants:
- \begin{description}
- \item[] Une structure 2D de tests de type struct test\_t définie dans le fichier testfw.h. 
- \item[] Le nombre de tests contenus dans la structure précédente.
- \item[] Le nom du fichier de l'executable. 
- \item[] Le nom du fichier de logs dans lequel sera redirrigé tous les résultats de tests.
- \item[] Une commande  permettant de rediriger tous les résultats de tests.
- \item[] Un entier définissant le temps maximum d'un test avant d'être en "timeout".
- \item[] Une variable booléenne silent permettant d'avoir un affichage ou non sur le terminal. 
- \item[] Une variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
-\end{description}
+\newpage
+\section{Partie A}
+
+\paragraph{}
+Cette partie du projet a initialement débuté sur une réflexion sur le contenu de la structure de données que le framework devra manipuler. \\
+
+Ensuite, nous avons implémenté la fonction s'occupant de la libération de l'espace mémoire occupé par la structure de données. \\
+
+Puis nous avons implémenté les différentes fonctions permettant l'ajout de tests à la structure de données de ce framework. \\
+
+\subsection{Structure testfw\_t du framework}
+
+\paragraph{}
+Le choix des champs d'une telle structure a été induite par les arguments de la fonction testfw\_init(). \\
+
+Nous avons ajouté d'autres champs facilitant par la suite l'implémentation des fonctions.\\
+
+La structure est composée des champs suivants:
+ \begin{itemize}
+ \item Un tableau de pointeurs vers des fonctions de type testfw\_func\_t.
+ \item Le nombre de tests contenus dans la structure du framework.
+ \item Le nom de l'executable.
+ \item Le nom du fichier log, passé en paramètre lors de l'initialisation de la structure
+ \item La commande, passée en paramètre lors de l'initialisation de la structure
+ \item Un entier définissant le temps maximum d'un test avant d'être en "timeout"
+ \item La variable booléenne silent permettant d'avoir un affichage ou non sur le terminal.
+ \item La variable booléenne verbose servant à afficher plus d'informations sur le fonctionnement interne du framework de test.
+\end{itemize}
+
+\newpage
 \subsection{Fonction testfw\_init()}
-Cette fonction retourne un pointeur sur une nouvelle structure framework. Elle initialise un à un les champs de la structure. Nous avons veillé à bien allouer la mémoire nécessaire à l'affectation des variables. Nous avons donc utilisé la fonction malloc(). La première allocation est effectuée pour la variable de type struct testfw\_t, puis nous allouons la mémoire nécessaire pour le nombre de tests, le programme, le logfile, l'entier timeout, la commande, et les deux booléens silent et verbose. Pour chaque champs, la taille de l'allocation dépend de la taille de la variable passée en paramètre. Pour connaitre cette taille nous utilisons la fonction sizeof() renvoyant la valeur en octets. 
+
+\paragraph{}
+Initialement, nous faisions les allocations mémoires de chaques champs de la structure via des mallocs, puis copions le contenu des chaînes de caractères via des strcpy(), cependant, cette technique était laborieuse et nous avons choisi de choisir une autre technique. C'est cette dernière qui sera expliquée dans le paragraphe suivant. \\
+
+La première allocation mémoire est celle de la structure de donnée testfw\_t. Nous testons si ce pointeur a bien été alloué comme afin par exemple d'éviter les problèmes de mémoire pleine, puis nous allouons le champs correspondant au tableau de pointeurs sur les fonctions de tests. Il s'agit donc d'une variable (struct test\_t **). \\
+
+Cependant, le code prenait beaucoup de place car il fallait tester le retour de strlen qui renvoie null, si chaîne null. Cela implique donc que les mallocs posaient problèmes. \\
+
+Nous avons donc décider d'allouer dynamiquement la mémoire des chaînes de caractéres à l'aide des fonctions 'asprintf' pour simplifier le code. Nous appelons la fonction asprintf que dans les cas où la variable correspondante n'est pas nulle pour lui attribuer la valeur en paramètres. Sinon nous laissons cette variable à NULL. \\
+
+Ensuite, nous avons géré le cas des modes d'affichage des tests.\\
+Le mode silent étant prédominant sur le mode verbose, nous désactivons ce mode si le mode silent est passé en paramètre d'exécution du programme.\\
 
 
 \subsection{Fonction testfw\_free()}
 
-Comme nous avons précédemment alloué la mémoire sur la création d'une variable de type struct testfw\_t, il nous faut libérer l'espace mémoire correspondant pour éviter toute fuite. Nous libérons donc les champs un par un, puis nous libérons également la variable primitivement initialisée. Cette fonction ne retourne rien.
+\paragraph{}
+Après avoir alloué la mémoire sur la création d'une variable de type (struct testfw\_t), il nous faut libérer l'espace mémoire correspondant pour éviter toute fuite. Nous libérons donc les champs un par un, puis nous libérons également la variable primitivement initialisée.
 
 
 \subsection{Fonction testfw\_length()}
-La fonction retourne le nombre de tests passés à une variable de type struct testfw\_t. Nous avons vu précedemment que nous avons choisi d'ajouter une variable de type entier à la structure afin de comptabiliser le nombre de tests à effectuer. Notre choix s'est porté sur cette implémentation car c'est selon nous la manière la plus rapide et efficace pour récupérer cette donnée.
+
+\paragraph{}
+Grâce à notre choix d'implémentation de la structure de données du framework, il nous est suffisant de retourner la valeur entière correspondante (ie.  nb\_tests)\\
+
+En effet, cette fonction retourne le nombre de tests enregistrés dans la variable tests de type struct  test\_t **). Cette dernière étant incrémentée à chaque ajout d'un test dans une autre fonction (ie. testfw\_register\_func()).\\
+
+Nous avons choisi cette implémentation de la structure pour simplifier la récupération du nombre de test (mais une simple division entre la taille de la structure contenant les tests et celle d'un test aurait suffit)\\
 
 \subsection{Fonction testfw\_get()}
-La fonction get permet de récupérer un test enregistré dans une variable de type struct testfw\_t et retourne un pointeur sur celle-ci.  A partir d'un entier, on récupère le test souhaité. Il est important de vérifier que le numéro de test passé en paramètre ne dépasse pas le nombre de tests enregistrés, et n'est pas inférieur à 0. 
+
+\paragraph{}
+La fonction get permet de récupérer un test enregistré dans une variable de type (struct testfw\_t) et retourne un pointeur sur celle-ci.  A partir d'un entier, on récupère le test souhaité.\\
+
+Il est important de vérifier que le numéro de test passé en paramètre ne dépasse pas le nombre de tests enregistrés, et n'est pas négatif.
 
 \subsection{Fonction testfw\_register\_func()}
-Nous avons implémenté la fonction testfw\_register\_func qui permet d'enregistrer un test à partir d'une fonction de test.  
 
-Nous avons fait appel à la fonction malloc() pour allouer une nouvelle variable de type struct test\_t, et nous avons de même alloué dynamiquement les champs correspondant au nom de la suite, le nom du test ainsi que la fonction de test.  La fonction sizeof() nous permet d'allouer dynamiquement la bonne quantité de mémoire.  
+\paragraph{}
+La fonction testfw\_register\_func permet d'enregistrer un test à partir d'un pointeur sur une fonction de type (testfw\_func\_t), d'une chaîne de caractères représentant le nom de cette fonction ainsi que la suite dans laquelle celle-ci est contenue.\\
 
-Pour enregistrer les nom de suite et de fonction nous avons créer deux pointeurs sur des buffers suite1 et name1 initialisés à NULL, puis nous utilisons la fonction asprintf(), qui alloue la taille de mémoire correspondante à la taille de la chaine de caractères. asprintf() renvoie le nombre de caractères qui ont bien été assignés au buffer. Cette fonction permet de réduire le nombre de lignes de code, puisqu'elle réalise plusieurs actions. On vérifie également que le retour de la fonction asprintf() soit supérieur à 0. Dans le cas contraire, cela indique que la fonction à échoué à l'allocation. 
+Nous commençons par initialiser dynamiquement la variable de type (struct test\_t) à l'aide d'un malloc().
+Ensuite, nous allouons deux variables de type (char *) contenant le nom (resp. la suite) de ce test. Il est nécessaire de les allouer, pour éviter des dysfonctionnements si les variables passées en paramètre de cette fonction sont locales.\\
 
-On peut alors utiliser les buffers suite1 et name1 pour initialiser les champs suite et name de la structure. On retourne finalement un pointeur sur la variable de type test\_t.
+Ensuite, nous faisons un realloc du tableau contenant l'intégralité des tests du framework pour pouvoir ajouter celui-ci.\\
 
+Si ce realloc échoue, nous faisons un free() de toutes les variables précédemment allouées et faisons un return NULL.\\
+Sinon, le champs "tests" de la structure fw est égal à ce nouveau pointeur, on y ajoute le test et incrémentons le nombre de tests contenus dans la structure du framework.
+
+
+\newpage
 \subsection{Fonction testfw\_register\_symb()}
-La fonction testfw\_register\_symb() permet d'enregistrer une nouvelle fonction de test  à partir d'un nom de test et le nom d'une suite, elle retourne un pointeur  sur la structure permettant d'enregistrer le test. 
 
-De la même manière que la fonction testfw\_register\_func(), nous initalisons une variable test\_name qui va contenir le résultat de l'appel de asprintf(). Nous utilisons cette fonction pour récuperer la concaténation des variables suite et name dans un buffer test\_name. Cela permet d'optimiser le code en n'utilisant pas les fonction de concaténation strcpy() et strcat().  Il est donc important de tester si l'entier retourné par la fonction asprintf() est supérieur à 0. 
+\paragraph{}
+La fonction testfw\_register\_symb() permet d'enregistrer une nouvelle fonction de test uniquement à partir d'un nom de test et de suite.\\
+Elle retourne un pointeur  sur la structure permettant d'enregistrer le test. \\
 
-Comme demandé dans le fichier projet.md nous avons utilisé la fonction dlopen() et récupéré son retour dans une variable handle\_sym de type void *, cela permet de charger l'exécutable correspondant au nom du programme, pour par la suite le parcourir. 
+Tout d'abord, nous vérifions si les différentes variables passées en paramètres (ie. (struct testfw\_t), (char * suite), (char * name)) ne sont pas des valeurs nulles. Si c'est le cas, nous sortons de la fonction et renvoyons NULL.\\
 
-Nous devons donc vérifier qu'à ce stade aucune erreur n'a été créée par l'appel de la fonction dlopen(), c'est pour cela que nous utilisons la fonction dlerror() qui renvoie une chaîne de caractères intelligible, décrivant la dernière erreur survenue dans dlopen().  Pour récupérer la fonction contenue dans l'executable  handle\_sym on utilise la fonction dlsym(). On verifie que celle ci ne retourne pas NULL,  symbolisant un échec, on stocke le retour de dlsym() dans "func" qui est elle même une fonction de type void *.  A nouveau, nous utilisons la fonction dlerror() pour vérifier le retour de dlsym().
+Dans le cas contraire, nous créons une nouvelle variable de type (char *), à laquelle nous lui attribuerons une chaîne de caractères suivant ce format:\\
+\textit{\$SUITE\_\$NAME}\\
 
+Grâce à cette chaîne, nous pouvons utiliser la fonction suivante :\\
+\textit{ void *dlopen(const char *filename, int flag);}\\
 
+Avec la valeur contenue dans fw->program en temps que premier paramètre, et \textit{RTLD\_NOW} comme flag.\\
 
+Grâce à l'appel de cette fonction, nous pouvons récupérer la bibliothèque dynamique depuis le premier paramètre de cette fonction.\\
+
+La fonction dlsym() nous permet de récupérer une fonction pouvant se trouver dans une librairie dynamique (.so) ou un exécutable particulier (type PIE), selon la correspondance des symboles passés en second paramètre.\\
+
+Grâce à la valeur retournée par dlsym, nous pouvons renvoyer la valeur de retour de la fonction suivante :
+\textit{testfw\_register\_func(fw, suite, name, (testfw\_func\_t) func);}\\
+
+Nous ne fermons pas l'appel de la dynamic library à l'aide de la fonction dlclose().
+Ne passant pas forcément "NULL" en premier paramètre de dlopen(), le descripteur renvoyé par dlopen() ne sera pas un descripteur du programme principale.\\
+
+Le problème étant que nous devons être sûr que la fonction issue de dlsym() n'essaiera pas d'exécuter du code de la bibliothèque partagée après la fermeture de l'accès à cette librairie.
+
+\newpage
 \subsection{Fonction testfw\_register\_suite()}
- La derniere fonction de cette partie A est la fonciton testfw\_register\_suite().  Elle prend en paramètre 
- une variable de type struct testfw\_t et le nom d'une suite.  Elle effectue l'enregistrement d'une suite de tests à partir d'un nom de suite. Pour pouvoir enregistrer une suite de test avec un nom, le plus simple est d'utiliser la commande externe shell "nm --defined-only <program> | cut -d ' ' -f 3 | grep "^<suite>". Pöur récupérer cette commande et la sauvegarder dans une chaine de charactère, on utilise à nouveau la fonction asprintf(), en utilisant comme buffer la variable cmd.  On vérifie toujours que asprintf() renvoie un entier supérieur à 0. Par la suite on ouvre un File * avec la fonction popen(). Ceci permet de créer un fichier à partir de la commande passée en paramètre, et cela en mode "read only". Pour s'assurer que le fichier a bien été créé, on utilise assert().
- 
+
+\paragraph{}
+Finalement, nous avons dû nous occuper de la dernière fonction de cette première partie, testfw\_register\_suite(). Celle-ci prend en paramètre  une variable de type (struct testfw\_t) et une autre de type (char *).\\
+
+Elle enregistre tout un ensemble de tests à partir de la variable (char *) passée en paramètre. Pour cela, nous utilisons une commande:\\
+
+\textbf{\textit{nm --defined-only (fw->program) | cut -d ' ' -f 3 | grep "\^(suite)\_"}}\\
+
+En effet, celle-ci nous permet de récupérer tous les tests au format 'suite\_foo' avec 'suite' la variable (char *) en paramètre.\\
+
+Exécuté à l'aide de popen, nous parcourons chaque ligne du fichier (FILE *) récupéré (un seul test différent étant présent par ligne) jusqu'à atteindre la fin du fichier.\\
+
+Pour chaques chaînes de caractéres ainsi récupérées, nous connaissons la taille de la première partie (ie. suite, étant passé en paramètres et égal à strlen(suite)) et qu'il y a un caractère '\_' pour séparer le nom de la suite et du test. Le nom du test à récupéré est donc la chaîne de caractère se trouvant à la position strlen(suite)+1 jusqu'au caractère de saut à la ligne.\\
+
+Maintenant que le nom du test est isolé, et que nous connaissons donc ce dernier ainsi que le nom de la suite, nous pouvons appeler la fonction testfw\_register\_symb((struct testfw\_t), (char *) suite, (char *) name).\\
+
+
+\newpage
 \section{Partie B}
 \subsection{Fonction testfw\_run\_all()}
-  
-\end{document}
 
+\paragraph{}
+Pour notre implémentation de la fonction run\_all, nous avons choisi de manipuler principalement des files descriptors. Nous commençons par tester la validité des paramètres, puis regardons si certains modes spécifiques (logfile, commande) sont activés.\\
+
+Ensuite, nous parcourons chaque test du framework via une boucle for.\\
+A chaque itération de cette boucle, nous commençons par créer un fork() du processus principale, et conservons la valeur pid\_t du fils dans une variable nommée "child\_pid".\\
+
+Dans le fils, nous fermons tous les file descriptors si le programme n'a pas été exécuté en mode verbose, ou a le mode silent. Cela nous permet de filtrer les sorties des tests.
+
+Ensuite, nous quittons le processus avec la valeur retournée par l'exécution de la fonction.\\
+
+
+\subsubsection{Gestion du mode d'affichage 'normal'}
+\paragraph{}
+Dans le cas normal d'affichage du framework, nous commençons par créer des copies des sorties standards et d'erreurs à l'aide de la fonction dup() qui prend le premier 'slot' de file descriptor valide. Dans le fils, comme l'option verbose n'est pas activée, nous fermons les copies des sorties standards et d'erreurs ainsi que celui du logfile.\\
+
+Dans le père, nous commençons par initialiser le timer servant à calculer le temps d'exécution du fils. Nous créons aussi une alarme qui permettra de gérer le cas de timeout du fils. En effet, situé dans le père, cette alarme ne sera pas impactée par d'éventuelles alarmes se trouvant dans les fonctions testées.\\
+
+Nous attendons ensuite la fin du fils à l'aide de la commande waitpid, et récupérons la valeur de sortie du processus que nous mettons dans l'adresse \&status.\\
+Finalement, nous annulons l'alarme à l'aide de la fonction (alarm(0)), puis récupérons le temps d'exécution à l'aide de la fonction gettimeofday() et un calcul de temps trivial.\\
+
+Nous affichons ensuite la sortie du framework sur la copie du file descriptor de la sortie standard à l'aide de la fonction print\_log().
+Cette fonction print sur le file descriptor passé en paramètre à l'aide de la fonction dprintf(file\_descriptor, "foo").\\
+
+
+\newpage
+
+\subsubsection{Gestion du mode cmd}
+\paragraph{}
+Pour le mode cmd, nous commençons par créer une variable de type FILE*, où sera renvoyé le retour de popen(commande) en mode écriture.\\
+
+Nous récupérons le file descriptor du FILE* à l'aide de la fonction \textit{fileno(cmd\_file)}. Nous passons ensuite la sortie du framework dans ce file descriptor, récupérons la valeur de "WEXITSTATUS(pclose(cmd\_file))", puis nous comparons cette valeur.\\
+
+Si cette dernière vaut 2 (sur fedora en tout cas), alors la fonction est une réussite, nous affichons donc le test avec "SUCCESS". Dans le cas où la commande n'a pas renvoyé un état de succès, nous affichons le test de cette fonction comme "FAILURE" et incrémentons le nombre de tests échoués par 1.\\
+
+\subsubsection{Gestion du mode logfile}
+\paragraph{}
+Si le mode logfile est activé (ie. non NULL), nous créons un nouveau filedescriptor, et écrasons tout fichier avec ce nom pour le remettre à 0 avant même la création des processus fils de test.\\
+
+Dans le fils, si le mode verbose est activé, nous enregistrons la sortie standard et d'erreur des tests, sinon, nous n'enregistrons rien dans ce fichier depuis le processus fils.\\
+
+Dans le père, nous enregistrons la sortie du framework test par test dans le fichier indiqué à l'aide de la fonction print\_log() qui prend en paramètres la structure du framework, le status du processus fils, le numéro du test, son temps d'exécution et un file descriptor.\\
+
+\end{document}

@@ -284,7 +284,6 @@ int testfw_register_suite(struct testfw_t *fw, char *suite) {
 			sum +=1;
 		}
 
-
 		free(name);
 	}
 	pclose(f);
